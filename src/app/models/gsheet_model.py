@@ -1,11 +1,14 @@
 import os
-from pydantic import BaseModel, ConfigDict, Field
 from typing import Annotated, Self, Final
-from gspread.worksheet import Worksheet
-from gspread.auth import service_account
 
-from app.shared.exceptions import SheetError
+from gspread.auth import service_account
+from gspread.worksheet import Worksheet
+from pydantic import BaseModel, ConfigDict, Field
+
 from app.shared.consts import COL_META_FIELD_NAME
+from app.shared.exceptions import SheetError
+from app.utils.ggsheet import GSheet
+from app.utils.google_api import StockManager
 from app.utils.paths import ROOT_PATH
 
 
@@ -188,3 +191,139 @@ class Product(ColSheetModel):
         raise SheetError(
             f"{self.IDSHEET_BLACKLIST}->{self.IDSHEET_BLACKLIST}->{self.CELL_BLACKLIST} is None"
         )
+
+
+class G2G(ColSheetModel):
+    G2G_CHECK: Annotated[int | None, "AA"] = 0
+    G2G_PROFIT: Annotated[float | None, "AB"] = 0
+    G2G_PRODUCT_COMPARE: Annotated[str | None, "AC"] = ''
+    G2G_DELIVERY_TIME: Annotated[int | None, "AD"] = 0
+    G2G_STOCK: Annotated[int | None, "AE"] = 0
+    G2G_MINUNIT: Annotated[int | None, "AF"] = 0
+    G2G_QUYDOIDONVI: Annotated[float | None, "AG"] = 0
+    G2G_IDSHEET_BLACKLIST: Annotated[str | None, "AH"] = ''
+    G2G_SHEET_BLACKLIST: Annotated[str | None, "AI"] = ''
+    G2G_CELL_BLACKLIST: Annotated[str | None, "AJ"] = ''
+
+    def get_blacklist(
+        self,
+        gsheet: GSheet,
+    ) -> list[str]:
+        sheet_manager = StockManager(self.G2G_IDSHEET_BLACKLIST)
+        blacklist = sheet_manager.get_multiple_str_cells(f"'{self.G2G_SHEET_BLACKLIST}'!{self.G2G_CELL_BLACKLIST}")
+        # blacklist = [item for sublist in query_values for item in sublist]
+        return blacklist
+
+
+# BE BF BG BH BI BJ BK BL BM BN BO BP BQ BR BS
+class FUN(ColSheetModel):
+    FUN_CHECK: Annotated[int | None, "AK"] = 0
+    FUN_PROFIT: Annotated[float | None, "AL"] = 0
+    FUN_DISCOUNTFEE: Annotated[float | None, "AM"] = 0
+    FUN_PRODUCT_COMPARE: Annotated[str | None, "AN"] = ''
+    NAME2: Annotated[str | None, "AO"] = None
+    FACTION: Annotated[str | None, "AP"] = ''
+    FUN_FILTER21: Annotated[str | None, "AQ"] = None
+    FUN_FILTER22: Annotated[str | None, "AR"] = None
+    FUN_FILTER23: Annotated[str | None, "AS"] = None
+    FUN_FILTER24: Annotated[str | None, "AT"] = None
+    FUN_HESONHANDONGIA: Annotated[float | None, "AU"] = None
+    FUN_STOCK: Annotated[int | None, "AV"] = 0
+    FUN_IDSHEET_BLACKLIST: Annotated[str | None, "AW"] = ''
+    FUN_SHEET_BLACKLIST: Annotated[str | None, "AX"] = ''
+    FUN_CELL_BLACKLIST: Annotated[str | None, "AY"] = ''
+
+    def get_blacklist(self, gsheet: GSheet) -> list[str]:
+        sheet_manager = StockManager(self.FUN_IDSHEET_BLACKLIST)
+        blacklist = sheet_manager.get_multiple_str_cells(f"'{self.FUN_SHEET_BLACKLIST}'!{self.FUN_CELL_BLACKLIST}")
+        return blacklist
+
+
+# BT BJ BV BW BX BY BZ CA CB CC CD
+class BIJ(ColSheetModel):
+    BIJ_CHECK: Annotated[int | None, "AZ"] = 0
+    BIJ_PROFIT: Annotated[float | None, "BA"] = 0
+    BIJ_NAME: Annotated[str | None, "BB"] = ''
+    BIJ_SERVER: Annotated[str | None, "BC"] = ''
+    BIJ_DELIVERY_METHOD: Annotated[str | None, "BD"] = ''
+    BIJ_STOCKMIN: Annotated[int | None, "BE"] = 0
+    BIJ_STOCKMAX: Annotated[int | None, "BF"] = 0
+    HESONHANDONGIA3: Annotated[float | None, "BG"] = 0
+    BIJ_IDSHEET_BLACKLIST: Annotated[str | None, "BH"] = ''
+    BIJ_SHEET_BLACKLIST: Annotated[str | None, "BI"] = ''
+    BIJ_CELL_BLACKLIST: Annotated[str | None, "BJ"] = ''
+
+    def get_blacklist(self, gsheet: GSheet) -> list[str]:
+        sheet_manager = StockManager(self.BIJ_IDSHEET_BLACKLIST)
+        blacklist = sheet_manager.get_multiple_str_cells(f"'{self.BIJ_SHEET_BLACKLIST}'!{self.BIJ_CELL_BLACKLIST}")
+        return blacklist
+
+
+# CS CT CU CV CW CX
+class DD(ColSheetModel):
+    DD_CHECK: Annotated[int | None, "BK"] = 0
+    DD_PROFIT: Annotated[float | None, "BL"] = 0
+    DD_QUYDOIDONVI: Annotated[float | None, "BM"] = 0
+    DD_PRODUCT_COMPARE: Annotated[str | None, "BN"] = ''
+    DD_STOCKMIN: Annotated[int | None, "BO"] = 0
+    DD_LEVELMIN: Annotated[int | None, "BP"] = 0
+
+
+class PriceSheet1(ColSheetModel):
+    SHEET_CHECK: Annotated[int | None, "BQ"] = 0
+    SHEET_PROFIT: Annotated[float | None, "BR"] = 0
+    HE_SO_NHAN: Annotated[float | None, "BS"] = 0
+    QUYDOIDONVI: Annotated[float | None, "BT"] = 0
+    ID_SHEET_PRICE: Annotated[str | None, "BU"] = ""
+    SHEET_PRICE: Annotated[str | None, "BV"] = ""
+    CELL_PRICE: Annotated[str | None, "BW"] = ""
+
+    def get_price(self) -> float:
+        sheet_manager = StockManager(self.ID_SHEET_PRICE)
+        price = sheet_manager.get_cell_float_value(f"'{self.SHEET_PRICE}'!{self.CELL_PRICE}")
+        return float(price)
+
+
+class PriceSheet2(ColSheetModel):
+    SHEET_CHECK: Annotated[int | None, "BX"] = 0
+    SHEET_PROFIT: Annotated[float | None, "BY"] = 0
+    HE_SO_NHAN: Annotated[float | None, "BZ"] = 0
+    QUYDOIDONVI: Annotated[float | None, "CA"] = 0
+    ID_SHEET_PRICE: Annotated[str | None, "CB"] = ""
+    SHEET_PRICE: Annotated[str | None, "CC"] = ""
+    CELL_PRICE: Annotated[str | None, "CD"] = ""
+
+    def get_price(self) -> float:
+        sheet_manager = StockManager(self.ID_SHEET_PRICE)
+        price = sheet_manager.get_cell_float_value(f"'{self.SHEET_PRICE}'!{self.CELL_PRICE}")
+        return float(price)
+
+
+class PriceSheet3(ColSheetModel):
+    SHEET_CHECK: Annotated[int | None, "CE"] = 0
+    SHEET_PROFIT: Annotated[float | None, "CF"] = 0
+    HE_SO_NHAN: Annotated[float | None, "CG"] = 0
+    QUYDOIDONVI: Annotated[float | None, "CH"] = 0
+    ID_SHEET_PRICE: Annotated[str | None, "CI"] = ""
+    SHEET_PRICE: Annotated[str | None, "CJ"] = ""
+    CELL_PRICE: Annotated[str | None, "CK"] = ""
+
+    def get_price(self) -> float:
+        sheet_manager = StockManager(self.ID_SHEET_PRICE)
+        price = sheet_manager.get_cell_float_value(f"'{self.SHEET_PRICE}'!{self.CELL_PRICE}")
+        return float(price)
+
+
+class PriceSheet4(ColSheetModel):
+    SHEET_CHECK: Annotated[int | None, "CL"] = 0
+    SHEET_PROFIT: Annotated[float | None, "CM"] = 0
+    HE_SO_NHAN: Annotated[float | None, "CN"] = 0
+    QUYDOIDONVI: Annotated[float | None, "CO"] = 0
+    ID_SHEET_PRICE: Annotated[str | None, "CP"] = ""
+    SHEET_PRICE: Annotated[str | None, "CQ"] = ""
+    CELL_PRICE: Annotated[str | None, "CR"] = ""
+
+    def get_price(self) -> float:
+        sheet_manager = StockManager(self.ID_SHEET_PRICE)
+        price = sheet_manager.get_cell_float_value(f"'{self.SHEET_PRICE}'!{self.CELL_PRICE}")
+        return float(price)
