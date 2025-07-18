@@ -1,0 +1,23 @@
+# python generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# venv
+.venv
+
+# logs
+**/logs/*
+!**/logs/.gitkeep
+
+# keys
+keys.json
+
+# Setting.envs
+setting.env
+
+# Downloaded_files
+downloaded_files/
