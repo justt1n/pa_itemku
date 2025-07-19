@@ -6,7 +6,7 @@ import requests
 from bs4 import BeautifulSoup, Tag
 from typing import List, Dict, Any, Optional, Tuple
 
-from model.sheet_model import DD
+from app.models.gsheet_model import DD
 
 
 class FilterParams:

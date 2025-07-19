@@ -1,16 +1,20 @@
 import re
 import random
 
-from app.models.gsheet_model import Product
+import constants
+from app.models.gsheet_model import Product, G2G, BIJ, FUN, PriceSheet1, PriceSheet2, PriceSheet3, PriceSheet4, DD
 from app.processes.crwl import extract_data
 from app.processes.crwl_api import crwl_api
 from app.processes.itemku_api import itemku_api
+from app.utils.ggsheet import GSheet
+from app.utils.gsheet import worksheet
+from app.utils.selenium_util import SeleniumUtil
+from app.utils.stock_fake import calculate_price_stock_fake, Row
 from app.utils.update_messages import (
     update_with_min_price_message,
     update_with_comparing_seller_message,
 )
 from app.models.crwl_api_models import Product as CrwlProduct
-from app.utils.logger import logger
 from app.shared.consts import KEYWORD_SPLIT_BY_CHARACTER
 
 
@@ -94,6 +98,7 @@ def calculate_competitive_price(
 def check_product_compare_flow(
     sb,
     product: Product,
+    index: int | None = None,
 ):
     min_price = product.min_price()
     max_price = product.max_price()
@@ -161,8 +166,35 @@ def check_product_compare_flow(
                     ):
                         min_price_product = _product
 
-    logger.info(f"Number of product: {len(products)}")
-    logger.info(f"Valid products: {len(valid_products)}")
+    print(f"Number of product: {len(products)}")
+    print(f"Valid products: {len(valid_products)}")
+
+    #TODO
+    gsheet = GSheet(constants.KEY_PATH)
+    g2g = G2G.get(worksheet, index)
+    bij = BIJ.get(worksheet, index)
+    fun = FUN.get(worksheet, index)
+    dd = DD.get(worksheet, index)
+    p1 = PriceSheet1.get(worksheet, index)
+    p2 = PriceSheet2.get(worksheet, index)
+    p3 = PriceSheet3.get(worksheet, index)
+    p4 = PriceSheet4.get(worksheet, index)
+    row = Row(
+        row_index=index,
+        g2g=g2g,
+        bij=bij,
+        fun=fun,
+        dd=dd,
+        s1=p1,
+        s2=p2,
+        s3=p3,
+        s4=p4,
+    )
+    headless_browser = SeleniumUtil(mode=2)
+    stock_fake_price_tuple, stock_fake_items = calculate_price_stock_fake(
+        gsheet=gsheet, row=row, hostdata=constants.BIJ_HOST_DATA, selenium=headless_browser
+    )
+    # ==================
 
     if min_price_product is None:
         target_price = update_by_min_price_or_max_price(
@@ -179,7 +211,7 @@ def check_product_compare_flow(
                 products=valid_keywords_products, target_price=target_price
             ),
         )
-        logger.info(note_message)
+        print(note_message)
         product.Note = note_message
         product.Last_update = last_update_message
         product.update()
@@ -208,7 +240,7 @@ def check_product_compare_flow(
                 products=valid_keywords_products, target_price=target_price
             ),
         )
-        logger.info(note_message)
+        print(note_message)
         product.Note = note_message
         product.Last_update = last_update_message
         product.update()
@@ -232,7 +264,7 @@ def no_check_product_compare_flow(
         price_max=max_price,
     )
 
-    logger.info(note_message)
+    print(note_message)
     product.Note = note_message
     product.Last_update = last_update_message
     product.update()
@@ -241,11 +273,12 @@ def no_check_product_compare_flow(
 def process(
     sb,
     product: Product,
+    index: int | None = None,
 ):
     if product.CHECK_PRODUCT_COMPARE == 1:
-        logger.info("Check product compare flow")
-        check_product_compare_flow(sb, product)
+        print("Check product compare flow")
+        check_product_compare_flow(sb, product, index)
 
     else:
-        logger.info("No check product compare flow")
+        print("No check product compare flow")
         no_check_product_compare_flow(product)

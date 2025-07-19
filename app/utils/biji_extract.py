@@ -1,89 +1,111 @@
-import codecs
-import json
-import logging
-import os
-import platform
-import time
-import zipfile
-from datetime import datetime
+import csv
+from typing import List, Optional, Dict, Any
 
-import gspread
-import wget
-from dotenv import load_dotenv
-from oauth2client.service_account import ServiceAccountCredentials
-from selenium import webdriver
-from selenium.common.exceptions import StaleElementReferenceException
-from selenium.common.exceptions import WebDriverException
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
-from webdriver_manager.chrome import ChromeDriverManager
+import requests
+from pydantic import BaseModel, Field, field_validator, ConfigDict, ValidationInfo
+from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 
-import constants
-from model.crawl_model import BijOfferItem, extract_integers_from_string
-from model.sheet_model import BIJ
-from utils.selenium_util import SeleniumUtil
+from app.models.gsheet_model import BIJ
+from app.utils.selenium_util import SeleniumUtil
 
 
-## Retry functions
+class FlexibleBaseModel(BaseModel):
+    """
+    A custom base model with a flexible configuration that:
+    - Ignores extra fields from the API.
+    - Automatically converts None to "" for string fields.
+    """
+    model_config = ConfigDict(
+        extra='ignore',  # Ignore fields not defined in the model
+        populate_by_name=True,  # Allow using aliases
+    )
 
-def get_cell_text(cell, retries=3):
-    for _ in range(retries):
-        try:
-            return cell.text
-        except StaleElementReferenceException:
-            time.sleep(0.25)
-    raise StaleElementReferenceException("Failed to get cell text after retries")
-
-
-def get_row_elements(row, retries=3):
-    while retries > 0:
-        try:
-            return row.find_elements(By.TAG_NAME, 'td')
-        except StaleElementReferenceException:
-            retries -= 1
-            if retries == 0:
-                raise
-            time.sleep(0.25)
-
-
-def find_link_element(cell, retries=3):
-    for _ in range(retries):
-        try:
-            return cell.find_elements(By.TAG_NAME, 'a')[1]
-        except StaleElementReferenceException:
-            time.sleep(0.25)
-    raise StaleElementReferenceException("Failed to find link element after retries")
+    @field_validator('*', mode='before')
+    @classmethod
+    def none_to_empty_str(cls, v: Any, info: ValidationInfo) -> Any:
+        """If a field should be a string and the value is None, convert it to ""."""
+        field_info = cls.model_fields.get(info.field_name)
+        if field_info:
+            is_string_field = field_info.annotation is str or \
+                              str in getattr(field_info.annotation, '__args__', ())
+            if is_string_field and v is None:
+                return ""  # Convert None to empty string
+        return v
 
 
-def get_link_attribute(link_element, attribute='href', retries=3):
-    for _ in range(retries):
-        try:
-            return link_element.get_attribute(attribute)
-        except StaleElementReferenceException:
-            time.sleep(0.25)
-    raise StaleElementReferenceException(f"Failed to get attribute '{attribute}' after retries")
+class Server(FlexibleBaseModel):
+    """Model Server đầy đủ, map tất cả các trường từ JSON."""
+    id: int
+    parent_id: int = Field(alias='parentId')
+    name: str
+    leaf: bool
+    type: str
+    type_name: str = Field(alias='typeName')
+    initial: str
+    hot: bool
+    sort: str
+    # Các trường có thể là null được khai báo là Optional
+    code: Optional[str] = None
+    english_name: Optional[str] = Field(default=None, alias='englishName')
+    unit: Optional[str] = None
+    description: Optional[str] = None
+    img_url: Optional[str] = Field(default=None, alias='imgUrl')
 
 
-def get_row_elements_with_retries(row, retries=3):
-    for _ in range(retries):
-        try:
-            return row.find_elements(By.TAG_NAME, 'td')
-        except StaleElementReferenceException:
-            time.sleep(0.25)
-    raise StaleElementReferenceException("Failed to find row elements after retries")
+class Game(BaseModel):
+    """Model Game đầy đủ, map tất cả các trường từ JSON."""
+    id: int
+    name: str
+    leaf: bool
+    type: str
+    type_name: str = Field(alias='typeName')
+    initial: str
+    hot: bool
+    sort: str
+    code: str
+    english_name: str = Field(alias='englishName')
+    unit: str
+    description: str
+    img_url: Optional[str] = Field(default=None, alias='imgUrl')
+    servers: List[Server] = []
 
 
-def find_elements_with_retries(parent_element, by, value, retries=3):
-    for _ in range(retries):
-        try:
-            return parent_element.find_elements(by, value)
-        except StaleElementReferenceException:
-            time.sleep(0.25)
-    raise StaleElementReferenceException(f"Failed to find elements by {by}='{value}' after retries")
+class Merchant(FlexibleBaseModel):
+    """Model cho đối tượng 'merchant' lồng bên trong."""
+    id: str
+    user_id: str = Field(alias='userId')
+    store_name: str = Field(alias='storeName')
+    order_completion_rate: float = Field(alias='orderCompletionRate')
+    order_settlement_of_second: int = Field(alias='orderSettlementOfSecond')
+    online: bool
+    created_at: str = Field(alias='createdAt')
+
+
+class ShopDemand(FlexibleBaseModel):
+    """Model cho một 'mặt hàng' trong danh sách 'list'."""
+    id: str
+    title: str
+    price: float
+    sum_quantity: int = Field(alias='sumQuantity')
+    min_quantity: int = Field(alias='minQuantity')
+    effective_quantity: int = Field(alias='effectiveQuantity')
+    unit: str
+    delivery_method_label: str = Field(alias='deliveryMethodLabel')
+    guaranteed: bool
+    deposit: str
+    game_code: str = Field(alias='gameCode')
+    game_name: str = Field(alias='gameName')
+    attr_name_indexes: str = Field(alias='attrNameIndexes')
+    created_at: str = Field(alias='createdAt')
+    merchant: Merchant  # Lồng model Merchant vào đây
+
+
+class ShopDemandResponse(FlexibleBaseModel):
+    """Model tổng thể cho toàn bộ JSON response."""
+    total: int
+    current_page: int = Field(alias='currentPage')
+    page_size: int = Field(alias='pageSize')
+    list: List[ShopDemand]  # Một danh sách các đối tượng ShopDemand
 
 
 def get_hostname_by_host_id(data, hostid):
@@ -93,80 +115,229 @@ def get_hostname_by_host_id(data, hostid):
     return None
 
 
+@retry(
+    wait=wait_fixed(2),
+    stop=stop_after_attempt(5)
+)
 def bij_lowest_price(
         BIJ_HOST_DATA: dict,
         selenium: SeleniumUtil,
         data: BIJ,
-        black_list) -> BijOfferItem:
-    # print("herer")
-    retries_time = constants.RETRIES_TIME
+        black_list) -> Optional[ShopDemand]:
     data.BIJ_NAME = get_hostname_by_host_id(BIJ_HOST_DATA, data.BIJ_NAME)
     data.BIJ_NAME = str(data.BIJ_NAME) + " "
     selenium.get("https://www.bijiaqi.com/")
     try:
-        wait = WebDriverWait(selenium.driver, constants.TIMEOUT)
-        input_field = wait.until(EC.element_to_be_clickable((By.ID, 'speedhostname')))
-        input_field.send_keys(data.BIJ_NAME)
-        input_field.send_keys(Keys.BACKSPACE)
-        input_field.send_keys(Keys.ENTER)
-        time.sleep(1)
-        table = None
-        while retries_time > 0:
-            try:
-                table = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'td table.tb.bijia.limit')))
-                more_row = selenium.driver.find_element(By.XPATH, "//tr[@class='more']")
-                selenium.driver.execute_script("arguments[0].click();", more_row)
-                break
-            except StaleElementReferenceException:
-                retries_time -= 1
-                if retries_time == 0:
-                    raise
-                time.sleep(0.25)
-
-        data_array = []
-
-        for row in find_elements_with_retries(table, By.TAG_NAME, 'tr', retries=retries_time):
-            row_data = []
-            for cell in get_row_elements_with_retries(row, retries=retries_time):
-                cell_text = get_cell_text(cell, retries=retries_time)
-                if cell_text == " ":
-                    continue
-                elif cell_text == "卖给他":
-                    link_element = find_link_element(cell, retries=retries_time)
-                    row_data.append(get_link_attribute(link_element, attribute='href', retries=retries_time))
-                else:
-                    row_data.append(cell_text)
-            data_array.append(row_data)
-
-        data_array = data_array[3:-2]
-        results = list()
-        for row in data_array:
-            gold = extract_integers_from_string(row[2])
-            if len(gold) == 2:
-                min_gold = gold[0]
-                max_gold = gold[1]
-            else:
-                min_gold = 0
-                max_gold = 0
-            result = BijOfferItem(
-                username=str(row[0]),
-                money=float(row[1]),
-                gold=gold,
-                min_gold=min_gold,
-                max_gold=max_gold,
-                dept=row[3],
-                time=row[4],
-                link=row[5],
-                type=row[6],
-                filter=row[7]
-            )
-            results.append(result)
-        ans = list()
-        for result in results:
-            if result.type in data.BIJ_DELIVERY_METHOD and result.username not in black_list:
-                if result.min_gold >= data.BIJ_STOCKMIN and result.max_gold <= data.BIJ_STOCKMAX:
-                    ans = result
-                    break
-        return ans
+        item_list = get_price_list(BIJ_HOST_DATA, int(data.BIJ_SERVER))
+        lowest_price = get_the_lowest_price(item_list, data.BIJ_DELIVERY_METHOD, data.BIJ_STOCKMIN, data.BIJ_STOCKMAX,
+                                            black_list)
+        return lowest_price
     except Exception as e:
         raise RuntimeError(f"Error getting BIJ lowest price: {e}")
+
+
+def get_price_list(server_map: dict, server_id: int) -> list[ShopDemand] | None:
+    game_service = GameService()
+
+    game_id = find_game_id(server_map, server_id)
+    if not game_id:
+        print(f"Could not find a gameId for server_id: {server_id}")
+        return None
+
+    response = game_service.fetch_shop_demand(game_id, server_id)
+
+    if not response or not response.list:
+        print(f"No items found for game {game_id}, server {server_id}.")
+        return None
+
+    return response.list
+
+
+def get_the_lowest_price(
+        items: List['ShopDemand'],
+        delivery_types: str,
+        min_qty: int,
+        max_qty: int,
+        black_list=None
+) -> Optional['ShopDemand']:
+    if not items:
+        return None
+
+    allowed_delivery_methods = {method.strip() for method in delivery_types}
+
+    # Use a generator expression for memory-efficient filtering
+    filtered_items = []
+
+    # 2. Loop through all items to filter them
+    for item in items:
+        # 3. Check if the item matches all conditions
+        if (item.min_quantity >= min_qty and
+                item.sum_quantity <= max_qty and
+                item.delivery_method_label in allowed_delivery_methods):
+            if black_list is not None and item.merchant.store_name not in black_list:
+                filtered_items.append(item)
+    try:
+        # The min() function will raise a ValueError if filtered_items is empty
+        min_item = min(filtered_items, key=lambda item: item.price)
+        return min_item
+    except ValueError:
+        return None
+
+
+class GameService:
+    API_BASE_URL = "https://www.bijiaqi.com/api/v1/any/shop"
+    HEADERS = {'Content-Type': 'application/json'}
+
+    def __init__(self):
+        self.games: List[Game] = []
+
+    # def _setup_mock_api_data(self) -> Dict[int, List[Dict[str, Any]]]:
+    #     # Dữ liệu giả lập cho API
+    #     return {
+    #         560: [
+    #             {"id": 37196, "parentId": 560, "name": "Doomhowl(Hardcore) - Alliance", "leaf": False,
+    #              "type": "server",
+    #              "typeName": "服务器", "initial": "D", "hot": False, "sort": "1940248948203720704",
+    #              "code": None,
+    #              "englishName": None, "unit": None, "description": None, "imgUrl": None},
+    #             {"id": 37197, "parentId": 560, "name": "Doomhowl(Hardcore) - Horde", "leaf": False,
+    #              "type": "server",
+    #              "typeName": "服务器", "initial": "D", "hot": False, "sort": "1940248948203720705",
+    #              "code": None,
+    #              "englishName": None, "unit": None, "description": None, "imgUrl": None}
+    #         ],
+    #         561: [
+    #             {"id": 40100, "parentId": 561, "name": "Silvermoon (EU) - Alliance", "leaf": False,
+    #              "type": "server",
+    #              "typeName": "服务器", "initial": "S", "hot": True, "sort": "2000000000000000001", "code": None,
+    #              "englishName": None, "unit": None, "description": None, "imgUrl": None}
+    #         ]
+    #     }
+
+    # def _fetch_servers_from_api(self, game_id: int) -> List[Dict[str, Any]]:
+    #     print(f"▶️  Đang gọi API cho game ID: {game_id}...")
+    #     time.sleep(0.5)
+    #     servers_data = self._mock_api_data.get(game_id, [])
+    #     print(f"✅  Nhận được {len(servers_data)} server.")
+    #     return servers_data
+    #
+    # def join_game_with_servers(self):
+    #     print("--- Bắt đầu quá trình kết hợp dữ liệu ---")
+    #     for game in self.games:
+    #         server_dicts = self._fetch_servers_from_api(game.id)
+    #         game.servers = server_dicts # Pydantic tự động phân tích dữ liệu vào model Server đầy đủ
+    #     print("--- Hoàn tất quá trình kết hợp ---\n")
+    #
+
+    def _fetch_games_from_api(self) -> List[Dict[str, Any]]:
+        url = f"{self.API_BASE_URL}/home/games"
+        print(f"Fetching games from API: {url}...")
+
+        try:
+            response = requests.post(url, headers=self.HEADERS, json={}, timeout=10)
+            response.raise_for_status()
+            games_data = response.json()
+            print(f"Fetched {len(games_data)} games from API.")
+            return games_data
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching games from API: {e}")
+            return []
+
+    def _fetch_servers_from_api(self, game_id: int) -> List[Dict[str, Any]]:
+        @retry(
+            wait=wait_fixed(2),  # Wait 2 seconds between retries
+            stop=stop_after_attempt(5),  # Stop after 3 attempts
+            retry=retry_if_exception_type(requests.exceptions.RequestException),  # Only retry on network/HTTP errors
+            reraise=False  # Do not re-raise the exception after the last attempt
+        )
+        def _make_api_call() -> List[Dict[str, Any]]:
+            url = f"{self.API_BASE_URL}/home/servers"
+            payload = {"gameId": game_id}
+
+            print(f"▶️  Calling API for servers of game ID {game_id} from: {url}...")
+
+            response = requests.post(url, headers=self.HEADERS, json=payload, timeout=30)
+            response.raise_for_status()
+
+            servers_data = response.json()
+            print(f"✅  Successfully retrieved {len(servers_data)} servers for game ID {game_id}.")
+            return servers_data
+
+        try:
+            result = _make_api_call()
+            return result if result is not None else []
+        except Exception as e:
+            print(f"❌  All retry attempts failed for game ID {game_id}: {e}")
+            return []
+
+    def get_final_result(self) -> List[Dict[str, Any]]:
+        return [game.model_dump(by_alias=True) for game in self.games]
+
+    @retry(
+        wait=wait_fixed(5),  # Wait 2 seconds between each retry
+        stop=stop_after_attempt(5),  # Stop after 3 attempts in total
+        retry=retry_if_exception_type(requests.exceptions.RequestException),
+        # Only retry on network/HTTP errors
+        reraise=False  # Do not re-raise the exception after the last attempt fails
+    )
+    def fetch_shop_demand(self, game_id: int, server_id: int) -> Optional['ShopDemandResponse']:
+        url = "https://www.bijiaqi.com/api/shop/demand/listShopDemand"
+        payload = {
+            "page": 1,
+            "limit": 100,
+            "categoryId": 1,
+            "gameId": game_id,
+            "attrIdIndexes": str(server_id),
+            "order": "price,asc",
+            "attributeChildrenIds": []
+        }
+
+        # print(f"Calling API for shop demand for game {game_id}, server {server_id}...")
+
+        try:
+            response = requests.post(url, headers=self.HEADERS, json=payload, timeout=10)
+
+            # This will trigger a retry if the status code is 4xx or 5xx
+            response.raise_for_status()
+
+            response_data = response.json()
+            validated_response = ShopDemandResponse.model_validate(response_data)
+
+            # print(f"Successfully fetched shop demand for game {game_id}.")
+            return validated_response
+
+        except requests.exceptions.RequestException as e:
+            print(f"API call failed: {e}. Retrying if possible...")
+            raise
+
+        except Exception as e:
+            # Catch other errors (like Pydantic validation) that should NOT be retried.
+            print(f"Error processing shop demand data: {e}")
+            return None
+
+
+def load_server_map_from_csv(filepath: str) -> dict:
+    server_map = {}
+    try:
+        with open(filepath, mode='r', encoding='utf-8') as infile:
+            reader = csv.reader(infile)
+            next(reader)  # Bỏ qua dòng tiêu đề (header)
+            for row in reader:
+                if len(row) >= 2:
+                    try:
+                        game_id = int(row[0])
+                        server_id = int(row[1])
+                        server_map[server_id] = game_id
+                    except ValueError:
+                        print(f"Ignoring {row[0]} as it is not a number.")
+    except FileNotFoundError:
+        print(f"Can't find {filepath}.")
+        return {}
+    return server_map
+
+
+def find_game_id(server_map: dict, server_id_to_find: int) -> int | None:
+    if not server_map:
+        return None
+    return server_map.get(server_id_to_find)

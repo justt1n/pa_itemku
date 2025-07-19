@@ -10,7 +10,6 @@ import hashlib
 
 import json
 
-from ..utils.logger import logger
 
 
 def base64_url_encode(data):
@@ -60,7 +59,7 @@ class ItemkuAPI:
         product_id: int,
         new_price: int,
     ):
-        logger.info("Call api update price")
+        print("Call api update price")
         nonce = str(int(datetime.now().timestamp()))
 
         payload = {

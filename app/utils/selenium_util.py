@@ -10,7 +10,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
 import constants
-from decorator.retry import retry
+from app.decorator.retry import retry
 
 PATH_TO_EXTENSION = pathlib.Path(__file__).parent.parent.joinpath(
     "extensions/rektcaptcha"

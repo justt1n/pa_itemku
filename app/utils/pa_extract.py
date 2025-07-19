@@ -2,8 +2,8 @@ import execjs
 from bs4 import BeautifulSoup, Tag
 from requests import HTTPError
 
-from decorator.retry import retry
-from model.crawl_model import Seller, DeliveryTime, TimeUnit, OfferItem
+from app.decorator.retry import retry
+from app.models.crawl_model import Seller, DeliveryTime, TimeUnit, OfferItem
 from .exceptions import PACrawlerError
 from .selenium_util import SeleniumUtil
 

@@ -2,17 +2,17 @@ import os
 
 from datetime import datetime
 import time
+
+from dotenv import load_dotenv
 from gspread.worksheet import Worksheet
 from seleniumbase import SB
 
 
-from app.utils.logger import logger
 from app.utils.gsheet import worksheet
 from app.models.gsheet_model import Product
 from app.main_process import process
 from pydantic import ValidationError
 from app.utils.update_messages import last_update_message
-
 
 def get_run_indexes(sheet: Worksheet) -> list[int]:
     run_indexes = []
@@ -34,20 +34,20 @@ def get_run_indexes(sheet: Worksheet) -> list[int]:
 
 
 def main(sb):
-    logger.info("Start running")
+    load_dotenv("setting.env")
     run_indexes = get_run_indexes(worksheet)
-    logger.info(f"Run index: {run_indexes}")
+    print(f"Run index: {run_indexes}")
     for index in run_indexes:
-        logger.info(f"INDEX (ROW): {index}")
+        print(f"INDEX (ROW): {index}")
         try:
             product = Product.get(worksheet, index)
 
-            process(sb, product)
-            logger.info(f"Sleep for {product.RELAX_TIME}s")
+            process(sb, product, index)
+            print(f"Sleep for {product.RELAX_TIME}s")
             time.sleep(product.RELAX_TIME)
         except ValidationError as e:
-            logger.error(f"VALIDATION ERROR AT ROW: {index}")
-            logger.error(e.errors())
+            print(f"VALIDATION ERROR AT ROW: {index}")
+            print(e.errors())
             try:
                 now = datetime.now()
                 worksheet.batch_update(
@@ -63,11 +63,11 @@ def main(sb):
                     ]
                 )
             except Exception as e:
-                logger.error(e)
+                print(e)
                 time.sleep(10)
 
         except Exception as e:
-            logger.error(f"FAILED AT ROW: {index}")
+            print(f"FAILED AT ROW: {index}")
             try:
                 now = datetime.now()
                 worksheet.batch_update(
@@ -79,13 +79,13 @@ def main(sb):
                     ]
                 )
             except Exception as e1:
-                logger.error(e1)
+                print(e1)
                 time.sleep(10)
             logger.exception(e, exc_info=True)
 
         time.sleep(4)
 
-    logger.info(f"Sleep for {os.getenv('RELAX_TIME_EACH_ROUND', '10')}s")
+    print(f"Sleep for {os.getenv('RELAX_TIME_EACH_ROUND', '10')}s")
     time.sleep(
         int(
             os.getenv(

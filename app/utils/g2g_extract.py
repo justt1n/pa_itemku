@@ -1,10 +1,10 @@
 from typing import Final
 import requests
-from decorator.retry import retry
+from app.decorator.retry import retry
 from requests import HTTPError, Session
 from bs4 import BeautifulSoup, Tag
 
-from model.crawl_model import DeliveryTime, TimeUnit, G2GOfferItem
+from app.models.crawl_model import DeliveryTime, TimeUnit, G2GOfferItem
 from .exceptions import G2GCrawlerError
 
 import re

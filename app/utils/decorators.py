@@ -1,6 +1,5 @@
 import time
 from typing import Callable
-from app.utils.logger import logger
 
 
 def retry_on_fail(max_retries: int = 3, sleep_interval: float = 0.5):
@@ -12,7 +11,7 @@ def retry_on_fail(max_retries: int = 3, sleep_interval: float = 0.5):
                 except Exception as e:
                     if i == max_retries:
                         raise e
-                    logger.info(
+                    print(
                         f"Retry: {func.__name__}, {i + 1} times, failed reason: {e}"
                     )
                     time.sleep(sleep_interval)

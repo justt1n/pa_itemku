@@ -3,10 +3,10 @@ from requests.exceptions import HTTPError
 
 from bs4 import BeautifulSoup, Tag
 
-from decorator.retry import retry
+from app.decorator.retry import retry
 from .exceptions import FUNCrawlerError
 
-from model.crawl_model import FUNOfferItem
+from app.models.crawl_model import FUNOfferItem
 
 
 @retry(retries=3, delay=1.2, exception=HTTPError)

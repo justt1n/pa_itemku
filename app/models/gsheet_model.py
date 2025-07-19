@@ -1,7 +1,5 @@
-import os
 from typing import Annotated, Self, Final
 
-from gspread.auth import service_account
 from gspread.worksheet import Worksheet
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -9,8 +7,6 @@ from app.shared.consts import COL_META_FIELD_NAME
 from app.shared.exceptions import SheetError
 from app.utils.ggsheet import GSheet
 from app.utils.google_api import StockManager
-from app.utils.paths import ROOT_PATH
-
 
 IS_UPDATE_META: Final[str] = "is_update"
 
@@ -48,9 +44,9 @@ class ColSheetModel(BaseModel):
 
     @classmethod
     def get(
-        cls,
-        worksheet: Worksheet,
-        index: int,
+            cls,
+            worksheet: Worksheet,
+            index: int,
     ) -> Self:
         mapping_dict = cls.mapping_fields()
 
@@ -74,7 +70,7 @@ class ColSheetModel(BaseModel):
         return cls.model_validate(model_dict)
 
     def update(
-        self,
+            self,
     ) -> None:
         mapping_dict = self.update_mapping_fields()
         model_dict = self.model_dump(mode="json")
@@ -122,18 +118,11 @@ class Product(ColSheetModel):
     EXCLUDE_KEYWORD: Annotated[str | None, {COL_META_FIELD_NAME: "Z"}] = None
 
     def min_price(self) -> int:
-        g_client = service_account(ROOT_PATH.joinpath(os.environ["KEYS_PATH"]))
+        sheet_manager = StockManager(self.IDSHEET_MIN)
+        min_price = sheet_manager.get_cell_float_value(f"'{self.SHEET_MIN}'!{self.CELL_MIN}")
 
-        res = g_client.http_client.values_get(
-            id=self.IDSHEET_MIN,
-            range=f"{self.SHEET_MIN}!{self.CELL_MIN}",
-            params={"valueRenderOption": "UNFORMATTED_VALUE"},
-        )
-
-        min_price = res.get("values", None)
-
-        if min_price:
-            return int(min_price[0][0])
+        if min_price is not None:
+            return int(min_price)
 
         raise SheetError(
             f"{self.IDSHEET_MIN}->{self.SHEET_MIN}->{self.CELL_MIN} is None"
@@ -143,53 +132,46 @@ class Product(ColSheetModel):
         if self.IDSHEET_MAX is None or self.SHEET_MAX is None or self.CELL_MAX is None:
             return None
 
-        g_client = service_account(ROOT_PATH.joinpath(os.environ["KEYS_PATH"]))
+        sheet_manager = StockManager(self.IDSHEET_MAX)
+        max_price = sheet_manager.get_cell_float_value(f"'{self.SHEET_MAX}'!{self.CELL_MAX}")
 
-        res = g_client.http_client.values_get(
-            params={"valueRenderOption": "UNFORMATTED_VALUE"},
-            id=self.IDSHEET_MAX,
-            range=f"{self.SHEET_MAX}!{self.CELL_MAX}",
-        )
-        max_price = res.get("values", None)
-        if max_price:
-            return int(max_price[0][0])
-
-        return None
-
-    def stock(self) -> int:
-        g_client = service_account(ROOT_PATH.joinpath(os.environ["KEYS_PATH"]))
-
-        res = g_client.http_client.values_get(
-            params={"valueRenderOption": "UNFORMATTED_VALUE"},
-            id=self.IDSHEET_STOCK,
-            range=f"{self.SHEET_STOCK}!{self.CELL_STOCK}",
-        )
-
-        stock = res.get("values", None)
-        if stock:
-            return int(stock[0][0])
+        if max_price is not None:
+            return int(max_price)
 
         raise SheetError(
-            f"{self.IDSHEET_MIN}->{self.SHEET_MIN}->{self.CELL_MIN} is None"
+            f"{self.IDSHEET_MAX}->{self.SHEET_MAX}->{self.CELL_MAX} is None"
+        )
+
+    def stock(self) -> int:
+        if self.IDSHEET_STOCK is None or self.SHEET_STOCK is None or self.CELL_STOCK is None:
+            raise SheetError(
+                f"{self.IDSHEET_STOCK}->{self.SHEET_STOCK}->{self.CELL_STOCK} is None"
+            )
+
+        sheet_manager = StockManager(self.IDSHEET_STOCK)
+        stock = sheet_manager.get_cell_float_value(f"'{self.SHEET_STOCK}'!{self.CELL_STOCK}")
+
+        if stock is not None:
+            return int(stock)
+
+        raise SheetError(
+            f"{self.IDSHEET_STOCK}->{self.SHEET_STOCK}->{self.CELL_STOCK} is None"
         )
 
     def blacklist(self) -> list[str]:
-        g_client = service_account(ROOT_PATH.joinpath(os.environ["KEYS_PATH"]))
+        if self.IDSHEET_BLACKLIST is None or self.SHEET_BLACKLIST is None or self.CELL_BLACKLIST is None:
+            raise SheetError(
+                f"{self.IDSHEET_BLACKLIST}->{self.SHEET_BLACKLIST}->{self.CELL_BLACKLIST} is None"
+            )
 
-        spreadsheet = g_client.open_by_key(self.IDSHEET_BLACKLIST)
+        sheet_manager = StockManager(self.IDSHEET_BLACKLIST)
+        blacklist = sheet_manager.get_multiple_str_cells(f"'{self.SHEET_BLACKLIST}'!{self.CELL_BLACKLIST}")
 
-        worksheet = spreadsheet.worksheet(self.SHEET_BLACKLIST)
-
-        blacklist = worksheet.batch_get([self.CELL_BLACKLIST])[0]
         if blacklist:
-            res = []
-            for blist in blacklist:
-                for i in blist:
-                    res.append(i)
-            return res
+            return blacklist
 
         raise SheetError(
-            f"{self.IDSHEET_BLACKLIST}->{self.IDSHEET_BLACKLIST}->{self.CELL_BLACKLIST} is None"
+            f"{self.IDSHEET_BLACKLIST}->{self.SHEET_BLACKLIST}->{self.CELL_BLACKLIST} is None"
         )
 
 
@@ -206,8 +188,8 @@ class G2G(ColSheetModel):
     G2G_CELL_BLACKLIST: Annotated[str | None, "AJ"] = ''
 
     def get_blacklist(
-        self,
-        gsheet: GSheet,
+            self,
+            gsheet: GSheet,
     ) -> list[str]:
         sheet_manager = StockManager(self.G2G_IDSHEET_BLACKLIST)
         blacklist = sheet_manager.get_multiple_str_cells(f"'{self.G2G_SHEET_BLACKLIST}'!{self.G2G_CELL_BLACKLIST}")
@@ -233,7 +215,7 @@ class FUN(ColSheetModel):
     FUN_SHEET_BLACKLIST: Annotated[str | None, "AX"] = ''
     FUN_CELL_BLACKLIST: Annotated[str | None, "AY"] = ''
 
-    def get_blacklist(self, gsheet: GSheet) -> list[str]:
+    def get_blacklist(self) -> list[str]:
         sheet_manager = StockManager(self.FUN_IDSHEET_BLACKLIST)
         blacklist = sheet_manager.get_multiple_str_cells(f"'{self.FUN_SHEET_BLACKLIST}'!{self.FUN_CELL_BLACKLIST}")
         return blacklist

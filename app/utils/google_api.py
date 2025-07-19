@@ -6,7 +6,7 @@ from googleapiclient.discovery import build
 
 class StockManager:
     def __init__(self, spreadsheet_id: str):
-        self.credentials_file = "key.json"
+        self.credentials_file = "keys.json"
         self.spreadsheet_id = spreadsheet_id
         # time.sleep(1)
         self.service = self._initialize_service()
