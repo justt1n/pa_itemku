@@ -1,13 +1,126 @@
-from typing import Final
-import requests
-from app.decorator.retry import retry
-from requests import HTTPError, Session
-from bs4 import BeautifulSoup, Tag
-
-from app.models.crawl_model import DeliveryTime, TimeUnit, G2GOfferItem
-from .exceptions import G2GCrawlerError
-
 import re
+from enum import Enum
+
+from selenium.webdriver.common.by import By
+from typing import Final
+
+from selenium.webdriver.support import expected_conditions as EC
+from bs4 import BeautifulSoup, Tag
+from pydantic import BaseModel
+from requests import HTTPError, Session
+from selenium.webdriver.support.wait import WebDriverWait
+
+from app.decorator.retry import retry
+from .exceptions import G2GCrawlerError
+from .selenium_util import SeleniumUtil
+from ..models.gsheet_model import G2G
+
+
+class Seller(BaseModel):
+    name: str | None
+    feedback_count: int | None
+    canGetFeedback: bool | None
+
+
+class StockNumInfo(BaseModel):
+    stock_1: int
+    stock_2: int
+    stock_fake: int
+
+
+class TimeUnit(Enum):
+    Hours = "Hours"
+    Hour = "Hour"
+    Minutes = "Minutes"
+    Minute = "Minute"
+
+
+class DeliveryTime(BaseModel):
+    value: int
+    unit: TimeUnit
+
+    def __to_seconds(self):
+        if self.unit in [TimeUnit.Hour, TimeUnit.Hours]:
+            return self.value * 60 * 60
+        return self.value * 60
+
+    def __gt__(self, orther: "DeliveryTime"):
+        return self.__to_seconds() > orther.__to_seconds()
+
+    def __lt__(self, orther: "DeliveryTime"):
+        return self.__to_seconds() < orther.__to_seconds()
+
+    def __ge__(self, orther: "DeliveryTime"):
+        return self.__to_seconds() >= orther.__to_seconds()
+
+    def __le__(self, orther: "DeliveryTime"):
+        return self.__to_seconds() <= orther.__to_seconds()
+
+    @staticmethod
+    def from_text(
+            txt: str,
+    ) -> "DeliveryTime":
+        # Remove duplicated white space
+        while "  " in txt:
+            txt = txt.replace("  ", " ")
+
+        txt_splitted = txt.strip().split(" ")
+        return DeliveryTime(
+            value=int(txt_splitted[0]),
+            unit=TimeUnit(txt_splitted[1]),
+        )
+
+
+class G2GOfferItem(BaseModel):
+    seller_name: str
+    delivery_time: DeliveryTime
+    stock: int
+    min_purchase: int
+    price_per_unit: float
+
+    def is_valid(
+            self,
+            g2g: G2G,
+            g2g_blacklist: list[str],
+    ) -> bool:
+        if self.seller_name in g2g_blacklist:
+            return False
+
+        if self.delivery_time.value > g2g.G2G_DELIVERY_TIME:
+            return False
+
+        if self.stock < g2g.G2G_STOCK:
+            return False
+
+        if self.min_purchase > g2g.G2G_MINUNIT:
+            return False
+
+        return True
+
+    @staticmethod
+    def filter_valid_g2g_offer_item(
+            g2g: G2G,
+            g2g_offer_items: list["G2GOfferItem"],
+            g2g_blacklist: list[str],
+    ) -> list["G2GOfferItem"]:
+        valid_g2g_offer_items = []
+        for g2g_offer_item in g2g_offer_items:
+            if g2g_offer_item.is_valid(g2g, g2g_blacklist):
+                valid_g2g_offer_items.append(g2g_offer_item)
+
+        return valid_g2g_offer_items
+
+    @staticmethod
+    def min_offer_item(
+            g2g_offer_items: list["G2GOfferItem"],
+    ) -> "G2GOfferItem":
+        min = g2g_offer_items[0]
+        for g2g_offer_item in g2g_offer_items:
+            if g2g_offer_item.price_per_unit < min.price_per_unit:
+                min = g2g_offer_item
+
+        return min
+
 
 DEFAULT_HEADERS: Final[dict[str, str]] = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 '
@@ -27,36 +140,16 @@ DEFAULT_COOKIES: Final[dict[str, str]] = {
 }
 
 
-@retry(retries=5, delay=1.2, exception=HTTPError)
-def __get_soup(
+@retry(retries=5, delay=0.5, exception=HTTPError)
+def __get_page_source_by_selenium(
         url: str,
-) -> BeautifulSoup:
-    try:
-        session = Session()
-        session.headers.update(DEFAULT_HEADERS) # Set default headers for the session
-
-        res = session.get(
-            url=url,
-            cookies=DEFAULT_COOKIES, # Pass cookies to the specific request
-            timeout=15 # Add a timeout to prevent hanging
-        )
-        # Check for HTTP errors AFTER the request is made
-        res.raise_for_status() # This will raise HTTPError for 4xx/5xx responses
-
-        return BeautifulSoup(res.text, "html.parser")
-
-    # Catch specific HTTPError for retries
-    except HTTPError as e:
-        print(f"HTTP Error encountered for {url}: {e.response.status_code} {e.response.reason}")
-        # Optionally print some response text for debugging, might show a block page
-        # print(f"Response text snippet: {e.response.text[:500]}")
-        raise e # Re-raise the HTTPError so the @retry decorator catches it
-
-    # Catch other potential request errors (network issues, DNS errors, timeouts)
-    except requests.exceptions.RequestException as e:
-        print(f"Request failed for {url}: {e}")
-        # Wrap in your custom exception or raise directly
-        raise G2GCrawlerError(f"Request failed for {url}: {e}") from e
+        selenium: SeleniumUtil,
+) -> str:
+    offer_list_container_selector = ".items-center"
+    soup = selenium.get_page_src(url, offer_list_container_selector)
+    if not soup:
+        raise G2GCrawlerError("Failed to retrieve or parse the page content")
+    return soup
 
 
 def __g2g_extract_offer_items_from_soup(
@@ -158,6 +251,10 @@ def __g2g_extract_price_per_unit(
 @retry(retries=5, delay=0.5, exception=HTTPError)
 def g2g_extract_offer_items(
         url: str,
+        selenium: SeleniumUtil
 ) -> list[G2GOfferItem]:
-    soup = __get_soup(url)
+    soup = __get_page_source_by_selenium(url, selenium)
+    # If the soup is a string, parse it into BeautifulSoup
+    if isinstance(soup, str):
+        soup = BeautifulSoup(soup, 'html.parser')
     return __g2g_extract_offer_items_from_soup(soup)

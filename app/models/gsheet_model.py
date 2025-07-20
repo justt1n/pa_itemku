@@ -87,6 +87,53 @@ class ColSheetModel(BaseModel):
         self.worksheet.batch_update(update_batch)
 
 
+class FlexibleColSheetModel(ColSheetModel):
+    @classmethod
+    def get(
+            cls,
+            worksheet: Worksheet,
+            index: int,
+    ) -> Self:
+        mapping_dict = cls.mapping_fields()
+        query_value = [f"{col}{index}" for col in mapping_dict.values()]
+
+        model_dict = {
+            "index": index,
+            "worksheet": worksheet,
+        }
+
+        try:
+            query_results = worksheet.batch_get(query_value)
+        except Exception as e:
+            raise ValueError(f"Failed to batch_get values: {e}")
+
+        for i, (field_name, _) in enumerate(mapping_dict.items()):
+            try:
+                value = query_results[i].first()
+                model_dict[field_name] = value.strip() if isinstance(value, str) else value
+            except (IndexError, AttributeError):
+                model_dict[field_name] = None  # Trường không tồn tại hoặc giá trị rỗng
+
+        return cls.model_validate(model_dict)
+
+    def update(self) -> None:
+        mapping_dict = self.update_mapping_fields()
+        model_dict = self.model_dump(mode="json")
+
+        update_batch = []
+
+        for k, v in mapping_dict.items():
+            value = model_dict.get(k)
+            if value is not None:  # Bỏ qua nếu giá trị là None
+                update_batch.append({
+                    "range": f"{v}{self.index}",
+                    "values": [[value]],
+                })
+
+        if update_batch:
+            self.worksheet.batch_update(update_batch)
+
+
 class Product(ColSheetModel):
     # highlight: Annotated[str, {COL_META_FIELD_NAME: "A"}]
     CHECK: Annotated[int, {COL_META_FIELD_NAME: "B"}]
@@ -175,14 +222,14 @@ class Product(ColSheetModel):
         )
 
 
-class G2G(ColSheetModel):
-    G2G_CHECK: Annotated[int, {COL_META_FIELD_NAME: "AA"}]
-    G2G_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "AB"}]
-    G2G_PRODUCT_COMPARE: Annotated[str, {COL_META_FIELD_NAME: "AC"}]
-    G2G_DELIVERY_TIME: Annotated[int, {COL_META_FIELD_NAME: "AD"}]
-    G2G_STOCK: Annotated[int, {COL_META_FIELD_NAME: "AE"}]
-    G2G_MINUNIT: Annotated[int, {COL_META_FIELD_NAME: "AF"}]
-    G2G_QUYDOIDONVI: Annotated[float, {COL_META_FIELD_NAME: "AG"}]
+class G2G(FlexibleColSheetModel):
+    G2G_CHECK: Annotated[int | None, {COL_META_FIELD_NAME: "AA"}]
+    G2G_PROFIT: Annotated[float | None, {COL_META_FIELD_NAME: "AB"}]
+    G2G_PRODUCT_COMPARE: Annotated[str | None, {COL_META_FIELD_NAME: "AC"}]
+    G2G_DELIVERY_TIME: Annotated[float | None, {COL_META_FIELD_NAME: "AD"}]
+    G2G_STOCK: Annotated[int | None, {COL_META_FIELD_NAME: "AE"}]
+    G2G_MINUNIT: Annotated[int | None, {COL_META_FIELD_NAME: "AF"}]
+    G2G_QUYDOIDONVI: Annotated[float | None, {COL_META_FIELD_NAME: "AG"}]
     G2G_IDSHEET_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "AH"}] = None
     G2G_SHEET_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "AI"}] = None
     G2G_CELL_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "AJ"}] = None
@@ -198,19 +245,19 @@ class G2G(ColSheetModel):
 
 
 # BE BF BG BH BI BJ BK BL BM BN BO BP BQ BR BS
-class FUN(ColSheetModel):
-    FUN_CHECK: Annotated[int, {COL_META_FIELD_NAME: "AK"}]
-    FUN_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "AL"}]
-    FUN_DISCOUNTFEE: Annotated[float, {COL_META_FIELD_NAME: "AM"}]
-    FUN_PRODUCT_COMPARE: Annotated[str, {COL_META_FIELD_NAME: "AN"}]
+class FUN(FlexibleColSheetModel):
+    FUN_CHECK: Annotated[int | None, {COL_META_FIELD_NAME: "AK"}]
+    FUN_PROFIT: Annotated[float | None, {COL_META_FIELD_NAME: "AL"}]
+    FUN_DISCOUNTFEE: Annotated[float | None, {COL_META_FIELD_NAME: "AM"}]
+    FUN_PRODUCT_COMPARE: Annotated[str | None, {COL_META_FIELD_NAME: "AN"}]
     NAME2: Annotated[str | None, {COL_META_FIELD_NAME: "AO"}] = None
-    FACTION: Annotated[str, {COL_META_FIELD_NAME: "AP"}]
+    FACTION: Annotated[str | None, {COL_META_FIELD_NAME: "AP"}]
     FUN_FILTER21: Annotated[str | None, {COL_META_FIELD_NAME: "AQ"}] = None
     FUN_FILTER22: Annotated[str | None, {COL_META_FIELD_NAME: "AR"}] = None
     FUN_FILTER23: Annotated[str | None, {COL_META_FIELD_NAME: "AS"}] = None
     FUN_FILTER24: Annotated[str | None, {COL_META_FIELD_NAME: "AT"}] = None
     FUN_HESONHANDONGIA: Annotated[float | None, {COL_META_FIELD_NAME: "AU"}] = None
-    FUN_STOCK: Annotated[int, {COL_META_FIELD_NAME: "AV"}]
+    FUN_STOCK: Annotated[int | None, {COL_META_FIELD_NAME: "AV"}]
     FUN_IDSHEET_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "AW"}] = None
     FUN_SHEET_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "AX"}] = None
     FUN_CELL_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "AY"}] = None
@@ -222,15 +269,15 @@ class FUN(ColSheetModel):
 
 
 # BT BJ BV BW BX BY BZ CA CB CC CD
-class BIJ(ColSheetModel):
-    BIJ_CHECK: Annotated[int, {COL_META_FIELD_NAME: "AZ"}]
-    BIJ_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "BA"}]
+class BIJ(FlexibleColSheetModel):
+    BIJ_CHECK: Annotated[int | None, {COL_META_FIELD_NAME: "AZ"}]
+    BIJ_PROFIT: Annotated[float | None, {COL_META_FIELD_NAME: "BA"}]
     BIJ_NAME: Annotated[str | None, {COL_META_FIELD_NAME: "BB"}] = None
     BIJ_SERVER: Annotated[str | None, {COL_META_FIELD_NAME: "BC"}] = None
     BIJ_DELIVERY_METHOD: Annotated[str | None, {COL_META_FIELD_NAME: "BD"}] = None
-    BIJ_STOCKMIN: Annotated[int, {COL_META_FIELD_NAME: "BE"}]
-    BIJ_STOCKMAX: Annotated[int, {COL_META_FIELD_NAME: "BF"}]
-    HESONHANDONGIA3: Annotated[float, {COL_META_FIELD_NAME: "BG"}]
+    BIJ_STOCKMIN: Annotated[int | None, {COL_META_FIELD_NAME: "BE"}]
+    BIJ_STOCKMAX: Annotated[int | None, {COL_META_FIELD_NAME: "BF"}]
+    HESONHANDONGIA3: Annotated[float | None, {COL_META_FIELD_NAME: "BG"}]
     BIJ_IDSHEET_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "BH"}] = None
     BIJ_SHEET_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "BI"}] = None
     BIJ_CELL_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "BJ"}] = None
@@ -242,20 +289,20 @@ class BIJ(ColSheetModel):
 
 
 # CS CT CU CV CW CX
-class DD(ColSheetModel):
-    DD_CHECK: Annotated[int, {COL_META_FIELD_NAME: "BK"}]
-    DD_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "BL"}]
-    DD_QUYDOIDONVI: Annotated[float, {COL_META_FIELD_NAME: "BM"}]
+class DD(FlexibleColSheetModel):
+    DD_CHECK: Annotated[int | None, {COL_META_FIELD_NAME: "BK"}]
+    DD_PROFIT: Annotated[float | None, {COL_META_FIELD_NAME: "BL"}]
+    DD_QUYDOIDONVI: Annotated[float | None, {COL_META_FIELD_NAME: "BM"}]
     DD_PRODUCT_COMPARE: Annotated[str | None, {COL_META_FIELD_NAME: "BN"}] = None
-    DD_STOCKMIN: Annotated[int, {COL_META_FIELD_NAME: "BO"}]
-    DD_LEVELMIN: Annotated[int, {COL_META_FIELD_NAME: "BP"}]
+    DD_STOCKMIN: Annotated[int | None, {COL_META_FIELD_NAME: "BO"}]
+    DD_LEVELMIN: Annotated[int | None, {COL_META_FIELD_NAME: "BP"}]
 
 
-class PriceSheet1(ColSheetModel):
-    SHEET_CHECK: Annotated[int, {COL_META_FIELD_NAME: "BQ"}]
-    SHEET_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "BR"}]
-    HE_SO_NHAN: Annotated[float, {COL_META_FIELD_NAME: "BS"}]
-    QUYDOIDONVI: Annotated[float, {COL_META_FIELD_NAME: "BT"}]
+class PriceSheet1(FlexibleColSheetModel):
+    SHEET_CHECK: Annotated[int | None, {COL_META_FIELD_NAME: "BQ"}]
+    SHEET_PROFIT: Annotated[float | None, {COL_META_FIELD_NAME: "BR"}]
+    HE_SO_NHAN: Annotated[float | None, {COL_META_FIELD_NAME: "BS"}]
+    QUYDOIDONVI: Annotated[float | None, {COL_META_FIELD_NAME: "BT"}]
     ID_SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "BU"}] = None
     SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "BV"}] = None
     CELL_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "BW"}] = None
@@ -266,11 +313,11 @@ class PriceSheet1(ColSheetModel):
         return float(price)
 
 
-class PriceSheet2(ColSheetModel):
-    SHEET_CHECK: Annotated[int, {COL_META_FIELD_NAME: "BX"}]
-    SHEET_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "BY"}]
-    HE_SO_NHAN: Annotated[float, {COL_META_FIELD_NAME: "BZ"}]
-    QUYDOIDONVI: Annotated[float, {COL_META_FIELD_NAME: "CA"}]
+class PriceSheet2(FlexibleColSheetModel):
+    SHEET_CHECK: Annotated[int | None, {COL_META_FIELD_NAME: "BX"}]
+    SHEET_PROFIT: Annotated[float | None, {COL_META_FIELD_NAME: "BY"}]
+    HE_SO_NHAN: Annotated[float | None, {COL_META_FIELD_NAME: "BZ"}]
+    QUYDOIDONVI: Annotated[float | None, {COL_META_FIELD_NAME: "CA"}]
     ID_SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CB"}] = None
     SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CC"}] = None
     CELL_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CD"}] = None
@@ -281,11 +328,11 @@ class PriceSheet2(ColSheetModel):
         return float(price)
 
 
-class PriceSheet3(ColSheetModel):
-    SHEET_CHECK: Annotated[int, {COL_META_FIELD_NAME: "CE"}]
-    SHEET_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "CF"}]
-    HE_SO_NHAN: Annotated[float, {COL_META_FIELD_NAME: "CG"}]
-    QUYDOIDONVI: Annotated[float, {COL_META_FIELD_NAME: "CH"}]
+class PriceSheet3(FlexibleColSheetModel):
+    SHEET_CHECK: Annotated[int | None, {COL_META_FIELD_NAME: "CE"}]
+    SHEET_PROFIT: Annotated[float | None, {COL_META_FIELD_NAME: "CF"}]
+    HE_SO_NHAN: Annotated[float | None, {COL_META_FIELD_NAME: "CG"}]
+    QUYDOIDONVI: Annotated[float | None, {COL_META_FIELD_NAME: "CH"}]
     ID_SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CI"}] = None
     SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CJ"}] = None
     CELL_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CK"}] = None
@@ -296,11 +343,11 @@ class PriceSheet3(ColSheetModel):
         return float(price)
 
 
-class PriceSheet4(ColSheetModel):
-    SHEET_CHECK: Annotated[int, {COL_META_FIELD_NAME: "CL"}]
-    SHEET_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "CM"}]
-    HE_SO_NHAN: Annotated[float, {COL_META_FIELD_NAME: "CN"}]
-    QUYDOIDONVI: Annotated[float, {COL_META_FIELD_NAME: "CO"}]
+class PriceSheet4(FlexibleColSheetModel):
+    SHEET_CHECK: Annotated[int | None, {COL_META_FIELD_NAME: "CL"}]
+    SHEET_PROFIT: Annotated[float | None, {COL_META_FIELD_NAME: "CM"}]
+    HE_SO_NHAN: Annotated[float | None, {COL_META_FIELD_NAME: "CN"}]
+    QUYDOIDONVI: Annotated[float | None, {COL_META_FIELD_NAME: "CO"}]
     ID_SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CP"}] = None
     SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CQ"}] = None
     CELL_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CR"}] = None

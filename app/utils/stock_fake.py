@@ -1,25 +1,115 @@
 import concurrent.futures
-from typing import Optional, Tuple, List
+import re
+from enum import Enum
+from typing import Optional, Tuple, List, TypeVar, Type
 
-from app.models.crwl_api_models import Product
-from app.utils.selenium_util import SeleniumUtil
+import gspread
+from pydantic import BaseModel, ValidationError
 
 from app.decorator.retry import retry
 from app.decorator.time_execution import time_execution
-from app.models.crawl_model import G2GOfferItem, FUNOfferItem
+from app.models.crwl_api_models import Product
 from app.models.gsheet_model import G2G, BIJ, FUN, DD, PriceSheet1, PriceSheet2, PriceSheet3, PriceSheet4
 from app.utils.biji_extract import bij_lowest_price
 from app.utils.common_utils import getCNYRate
 from app.utils.dd_utils import get_dd_min_price
-from app.utils.fun_extract import fun_extract_offer_items
-from app.utils.g2g_extract import g2g_extract_offer_items
+from app.utils.fun_extract import fun_extract_offer_items, FUNOfferItem
+from app.utils.g2g_extract import g2g_extract_offer_items, G2GOfferItem
 from app.utils.ggsheet import (
     GSheet,
 )
+from app.utils.selenium_util import SeleniumUtil
 
 
 class ExtraInfor:
     pass
+
+
+class Seller(BaseModel):
+    name: str | None
+    feedback_count: int | None
+    canGetFeedback: bool | None
+
+
+class TimeUnit(Enum):
+    Hours = "Hours"
+    Hour = "Hour"
+    Minutes = "Minutes"
+    Minute = "Minute"
+
+
+class DeliveryTime(BaseModel):
+    value: int
+    unit: TimeUnit
+
+    def __to_seconds(self):
+        if self.unit in [TimeUnit.Hour, TimeUnit.Hours]:
+            return self.value * 60 * 60
+        return self.value * 60
+
+    def __gt__(self, orther: "DeliveryTime"):
+        return self.__to_seconds() > orther.__to_seconds()
+
+    def __lt__(self, orther: "DeliveryTime"):
+        return self.__to_seconds() < orther.__to_seconds()
+
+    def __ge__(self, orther: "DeliveryTime"):
+        return self.__to_seconds() >= orther.__to_seconds()
+
+    def __le__(self, orther: "DeliveryTime"):
+        return self.__to_seconds() <= orther.__to_seconds()
+
+    @staticmethod
+    def from_text(
+            txt: str,
+    ) -> "DeliveryTime":
+        # Remove duplicated white space
+        while "  " in txt:
+            txt = txt.replace("  ", " ")
+
+        txt_splitted = txt.strip().split(" ")
+        return DeliveryTime(
+            value=int(txt_splitted[0]),
+            unit=TimeUnit(txt_splitted[1]),
+        )
+
+
+class OfferItem(BaseModel):
+    offer_id: str
+    server: str
+    seller: Seller | None
+    delivery_time: DeliveryTime
+    min_unit: int
+    min_stock: int
+    quantity: int
+    price: float
+
+    @staticmethod
+    def min_offer_item(
+            offer_items: list["OfferItem"],
+    ) -> "OfferItem":
+        min = offer_items[0]
+        for offer_item in offer_items:
+            if offer_item.price < min.price:  # type: ignore
+                min = offer_item
+
+        return min
+
+
+def extract_integers_from_string(s):
+    return [int(num) for num in re.findall(r"\d+", s)]
+
+
+class BijOfferItem(BaseModel):
+    username: str
+    money: float
+    gold: list
+    min_gold: int
+    max_gold: int
+    dept: str
+    time: str
+    link: str
+    type: str
 
 
 class Row:
@@ -70,10 +160,10 @@ def g2g_lowest_price(
     return G2GOfferItem.min_offer_item(filtered_g2g_offer_items)
 
 
-def _process_g2g(row: Row, gsheet: GSheet) -> Optional[Tuple[float, str]]:
+def _process_g2g(row: Row, gsheet: GSheet, selenium: SeleniumUtil) -> Optional[Tuple[float, str]]:
     try:
         print("Starting G2G fetch...")
-        g2g_offer_items = g2g_extract_offer_items(row.g2g.G2G_PRODUCT_COMPARE)
+        g2g_offer_items = g2g_extract_offer_items(row.g2g.G2G_PRODUCT_COMPARE, selenium)
         filtered_g2g_offer_items = G2GOfferItem.filter_valid_g2g_offer_item(
             g2g=row.g2g,
             g2g_blacklist=row.g2g.get_blacklist(gsheet),
@@ -295,7 +385,7 @@ def calculate_price_stock_fake(
         # Submit G2G task
         if row.g2g.G2G_CHECK == 1:
             print("Submitting G2G task...")
-            g2g_future = executor.submit(_process_g2g, row, gsheet)
+            g2g_future = executor.submit(_process_g2g, row, gsheet, selenium)
 
         # Submit FUN task
         if row.fun.FUN_CHECK == 1:
@@ -418,3 +508,126 @@ def calculate_price_stock_fake(
         print(f"Overall minimum price: {final_min_price}")
 
     return final_min_price, all_prices
+
+
+def get_row(worksheet: gspread.worksheet.Worksheet, row_index: int) -> Row:
+    """
+    Lấy dữ liệu từ một dòng và trả về một đối tượng Row có cấu trúc.
+
+    Hàm này sẽ tìm nạp dữ liệu cho tất cả các model cần thiết (Product, G2G, ...)
+    và tập hợp chúng vào một instance của lớp Row.
+    """
+    # Định nghĩa tất cả các lớp model cần thiết để tạo thành một Row
+    model_classes_to_fetch = [
+        G2G, FUN, BIJ, DD,
+        PriceSheet1, PriceSheet2, PriceSheet3, PriceSheet4
+    ]
+
+    # Sử dụng hàm helper để lấy tất cả các instance model trong một lần gọi API
+    model_instances = _get_models_from_row(
+        worksheet=worksheet,
+        model_classes=model_classes_to_fetch,
+        row_index=row_index
+    )
+
+    # Tạo một map từ class -> instance để dễ dàng truy cập
+    instance_map = {type(instance): instance for instance in model_instances}
+
+    # Tạo và trả về đối tượng Row
+    # Hàm sẽ báo lỗi nếu bất kỳ model nào không được tìm thấy
+    return Row(
+        row_index=row_index,
+        g2g=instance_map[G2G],
+        fun=instance_map[FUN],
+        bij=instance_map[BIJ],
+        dd=instance_map[DD],
+        s1=instance_map[PriceSheet1],
+        s2=instance_map[PriceSheet2],
+        s3=instance_map[PriceSheet3],
+        s4=instance_map[PriceSheet4],
+    )
+
+
+# --- HÀM HELPER: Logic lấy dữ liệu gốc, giờ là hàm nội bộ ---
+T = TypeVar('T', bound='ColSheetModel')
+
+
+def _get_models_from_row(
+        worksheet: gspread.worksheet.Worksheet,
+        model_classes: List[Type[T]],
+        row_index: int,
+) -> List[T]:
+    """
+    (Hàm nội bộ) Lấy dữ liệu cho nhiều model Pydantic từ một dòng duy nhất.
+    """
+    all_ranges = []
+    model_field_info = []
+
+    # --- Bước 1: Tổng hợp tất cả các ô cần lấy từ tất cả các model ---
+    for model_cls in model_classes:
+        mapping = model_cls.mapping_fields()
+        if not mapping:
+            continue
+
+        field_names = list(mapping.keys())
+        model_field_info.append({'class': model_cls, 'fields': field_names})
+
+        for col_letter in mapping.values():
+            all_ranges.append(f"{col_letter}{row_index}")
+
+    if not all_ranges:
+        return []
+
+    # --- Bước 2: Thực hiện một lệnh batch_get duy nhất ---
+    try:
+        # `batch_get` trả về một danh sách các ma trận giá trị.
+        # Ví dụ: [['A1_val']], [['B1_val']], [[]] (cho ô trống)
+        query_results = worksheet.batch_get(all_ranges)
+    except Exception as e:
+        raise ValueError(f"Lỗi khi thực hiện batch_get từ Google Sheet: {e}")
+
+    # --- FIX HERE: Xử lý đúng cấu trúc dữ liệu trả về ---
+    all_values = []
+    for value_matrix in query_results:
+        value = None
+        # Kiểm tra xem ma trận và dòng đầu tiên có tồn tại và có nội dung không
+        if value_matrix and value_matrix[0]:
+            value = value_matrix[0][0]
+
+        # Xử lý chuỗi
+        if isinstance(value, str):
+            value = value.strip()
+            # Coi chuỗi rỗng là None để nhất quán với ô trống
+            if not value:
+                value = None
+
+        all_values.append(value)
+
+    # --- Bước 3: Phân phối giá trị và khởi tạo các model ---
+    validated_models = []
+    current_position = 0
+
+    for info in model_field_info:
+        model_cls = info['class']
+        field_names = info['fields']
+        num_fields = len(field_names)
+
+        model_values = all_values[current_position: current_position + num_fields]
+        model_dict = dict(zip(field_names, model_values))
+
+        model_dict["worksheet"] = worksheet
+        model_dict["index"] = row_index
+
+        try:
+            validated_model = model_cls.model_validate(model_dict)
+            validated_models.append(validated_model)
+        except ValidationError as e:
+            error_details = e.errors()
+            raise ValidationError(
+                f"Lỗi validate cho model '{model_cls.__name__}' tại dòng {row_index}. Chi tiết: {error_details}",
+                model=model_cls
+            ) from e
+
+        current_position += num_fields
+
+    return validated_models

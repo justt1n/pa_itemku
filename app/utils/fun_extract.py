@@ -1,17 +1,59 @@
 import requests
-from requests.exceptions import HTTPError
-
 from bs4 import BeautifulSoup, Tag
+from pydantic import BaseModel
+from requests.exceptions import HTTPError
 
 from app.decorator.retry import retry
 from .exceptions import FUNCrawlerError
+from ..models.gsheet_model import FUN
 
-from app.models.crawl_model import FUNOfferItem
+
+class FUNOfferItem(BaseModel):
+    seller: str
+    in_stock: int
+    price: float
+
+    def is_valid(
+            self,
+            fun: FUN,
+            fun_blacklist: list[str],
+    ) -> bool:
+        if self.seller in fun_blacklist:
+            return False
+
+        if self.in_stock < fun.FUN_STOCK:
+            return False
+
+        return True
+
+    @staticmethod
+    def filter_valid_fun_offer_items(
+            fun: FUN,
+            fun_offer_items: list["FUNOfferItem"],
+            fun_blacklist: list[str],
+    ) -> list["FUNOfferItem"]:
+        valid_fun_offer_items = []
+        for fun_offer_item in fun_offer_items:
+            if fun_offer_item.is_valid(fun, fun_blacklist):
+                valid_fun_offer_items.append(fun_offer_item)
+
+        return valid_fun_offer_items
+
+    @staticmethod
+    def min_offer_item(
+            fun_offer_items: list["FUNOfferItem"],
+    ) -> "FUNOfferItem":
+        min_fun_offer_item = fun_offer_items[0]
+        for fun_offer_item in fun_offer_items:
+            if fun_offer_item.price < min_fun_offer_item.price:
+                min_fun_offer_item = fun_offer_item
+
+        return min_fun_offer_item
 
 
 @retry(retries=3, delay=1.2, exception=HTTPError)
 def __get_soup(
-    url: str,
+        url: str,
 ) -> BeautifulSoup:
     res = requests.get(url=url, cookies={"cy": "usd"})
     res.raise_for_status()
@@ -19,8 +61,8 @@ def __get_soup(
 
 
 def __extract_filters_data(
-    soup: BeautifulSoup,
-    filters: list[str],
+        soup: BeautifulSoup,
+        filters: list[str],
 ) -> list[tuple]:
     filters_data = []
 
@@ -36,7 +78,7 @@ def __extract_filters_data(
                         if option.has_attr("value"):
                             # If value in option in filter
                             if option.get_text(strip=True).replace(" ", "").replace(
-                                "\n", ""
+                                    "\n", ""
                             ) in filter.replace(" ", "").replace("\n", ""):
                                 filters_data.append(
                                     (
@@ -48,7 +90,7 @@ def __extract_filters_data(
 
 
 def __extract_seller_name(
-    tag: Tag,
+        tag: Tag,
 ) -> str:
     seller_name_tag = tag.select_one(".media-user-name")
     if seller_name_tag:
@@ -60,7 +102,7 @@ def __extract_seller_name(
 
 
 def __extract_fun_in_stock(
-    tag: Tag,
+        tag: Tag,
 ) -> int:
     in_stock_tag = tag.select_one(".tc-amount")
     if in_stock_tag:
@@ -76,7 +118,7 @@ def __extract_fun_in_stock(
 
 
 def __extract_fun_price(
-    tag: Tag,
+        tag: Tag,
 ) -> float:
     price_tag = tag.select_one(".tc-price")
     if price_tag:
@@ -93,7 +135,7 @@ def __extract_fun_price(
 
 
 def __extract_fun_offer_items_from_soup(
-    offer_item_tags: list[Tag],
+        offer_item_tags: list[Tag],
 ) -> list[FUNOfferItem]:
     fun_offer_items = []
     for offer_item_tag in offer_item_tags:
@@ -109,8 +151,8 @@ def __extract_fun_offer_items_from_soup(
 
 @retry(10, 0.25, HTTPError)
 def fun_extract_offer_items(
-    url: str,
-    filters: list[str],
+        url: str,
+        filters: list[str],
 ) -> list[FUNOfferItem]:
     soup = __get_soup(url)
     filters_data = __extract_filters_data(soup, filters)
