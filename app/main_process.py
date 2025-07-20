@@ -1,11 +1,13 @@
-import re
 import random
+import re
 
 import constants
+from app.models.crwl_api_models import Product as CrwlProduct
 from app.models.gsheet_model import Product, G2G, BIJ, FUN, PriceSheet1, PriceSheet2, PriceSheet3, PriceSheet4, DD
 from app.processes.crwl import extract_data
 from app.processes.crwl_api import crwl_api
 from app.processes.itemku_api import itemku_api
+from app.shared.consts import KEYWORD_SPLIT_BY_CHARACTER
 from app.utils.ggsheet import GSheet
 from app.utils.gsheet import worksheet
 from app.utils.selenium_util import SeleniumUtil
@@ -14,20 +16,18 @@ from app.utils.update_messages import (
     update_with_min_price_message,
     update_with_comparing_seller_message,
 )
-from app.models.crwl_api_models import Product as CrwlProduct
-from app.shared.consts import KEYWORD_SPLIT_BY_CHARACTER
 
 
 def __filter_lower_than_target_price(
-    products: list[CrwlProduct],
-    target_price: int,
+        products: list[CrwlProduct],
+        target_price: int,
 ) -> list[CrwlProduct]:
     return [product for product in products if product.price < target_price]
 
 
 def update_product_price(
-    product_id: int,
-    target_price: int,
+        product_id: int,
+        target_price: int,
 ):
     itemku_api.update_price(
         product_id=product_id,
@@ -38,7 +38,7 @@ def update_product_price(
 
 
 def extract_product_id_from_product_link(
-    product_link: str,
+        product_link: str,
 ) -> int:
     pattern = r"/dagangan/(\d+)/edit"
 
@@ -51,9 +51,9 @@ def extract_product_id_from_product_link(
 
 
 def update_by_min_price_or_max_price(
-    product: Product,
-    min_price: int,
-    max_price: int | None,
+        product: Product,
+        min_price: int,
+        max_price: int | None,
 ) -> int:
     if max_price:
         target_price = max_price
@@ -75,9 +75,9 @@ def update_by_min_price_or_max_price(
 
 
 def calculate_competitive_price(
-    product: Product,
-    min_price: int,
-    compare_price: int,
+        product: Product,
+        min_price: int,
+        compare_price: int,
 ) -> int:
     if compare_price - product.DONGIAGIAM_MAX >= min_price:
         min_target = compare_price - product.DONGIAGIAM_MAX
@@ -96,9 +96,9 @@ def calculate_competitive_price(
 
 
 def check_product_compare_flow(
-    sb,
-    product: Product,
-    index: int | None = None,
+        sb,
+        product: Product,
+        index: int | None = None,
 ):
     min_price = product.min_price()
     max_price = product.max_price()
@@ -169,34 +169,15 @@ def check_product_compare_flow(
     print(f"Number of product: {len(products)}")
     print(f"Valid products: {len(valid_products)}")
 
-    #TODO
-    gsheet = GSheet(constants.KEY_PATH)
-    g2g = G2G.get(worksheet, index)
-    bij = BIJ.get(worksheet, index)
-    fun = FUN.get(worksheet, index)
-    dd = DD.get(worksheet, index)
-    p1 = PriceSheet1.get(worksheet, index)
-    p2 = PriceSheet2.get(worksheet, index)
-    p3 = PriceSheet3.get(worksheet, index)
-    p4 = PriceSheet4.get(worksheet, index)
-    row = Row(
-        row_index=index,
-        g2g=g2g,
-        bij=bij,
-        fun=fun,
-        dd=dd,
-        s1=p1,
-        s2=p2,
-        s3=p3,
-        s4=p4,
-    )
-    headless_browser = SeleniumUtil(mode=2)
-    stock_fake_price_tuple, stock_fake_items = calculate_price_stock_fake(
-        gsheet=gsheet, row=row, hostdata=constants.BIJ_HOST_DATA, selenium=headless_browser
-    )
+    # project add order site price
+    # get price in order site then compare with product price
+    order_site_min_price = calculate_order_site_price(index)
+    if order_site_min_price is not None:
+        print(f"Order site min price: {order_site_min_price}")
     # ==================
 
     if min_price_product is None:
+        min_price = max(min_price, int(order_site_min_price))
         target_price = update_by_min_price_or_max_price(
             product=product,
             min_price=min_price,
@@ -215,8 +196,8 @@ def check_product_compare_flow(
         product.Note = note_message
         product.Last_update = last_update_message
         product.update()
-
     else:
+        min_price = max(min_price, int(order_site_min_price))
         target_price = calculate_competitive_price(
             product=product,
             min_price=min_price,
@@ -247,7 +228,7 @@ def check_product_compare_flow(
 
 
 def no_check_product_compare_flow(
-    product: Product,
+        product: Product,
 ):
     min_price = product.min_price()
     max_price = product.max_price()
@@ -270,10 +251,44 @@ def no_check_product_compare_flow(
     product.update()
 
 
+def calculate_order_site_price(index: int | None = None):
+    gsheet = GSheet(constants.KEY_PATH)
+
+    g2g = G2G.get(worksheet, index)
+    bij = BIJ.get(worksheet, index)
+    fun = FUN.get(worksheet, index)
+    dd = DD.get(worksheet, index)
+    p1 = PriceSheet1.get(worksheet, index)
+    p2 = PriceSheet2.get(worksheet, index)
+    p3 = PriceSheet3.get(worksheet, index)
+    p4 = PriceSheet4.get(worksheet, index)
+    row = Row(
+        row_index=index,
+        g2g=g2g,
+        bij=bij,
+        fun=fun,
+        dd=dd,
+        s1=p1,
+        s2=p2,
+        s3=p3,
+        s4=p4,
+    )
+    headless_browser = SeleniumUtil(mode=2)
+    stock_fake_price_tuple, stock_fake_items = calculate_price_stock_fake(
+        gsheet=gsheet, row=row, hostdata=constants.BIJ_HOST_DATA, selenium=headless_browser
+    )
+    if stock_fake_price_tuple is None or stock_fake_price_tuple[0] <= 0:  # Ensure valid price
+        print("Stock fake price is None or not positive.")
+        return None
+
+    stock_fake_price_value = stock_fake_price_tuple[0]
+    return stock_fake_price_value
+
+
 def process(
-    sb,
-    product: Product,
-    index: int | None = None,
+        sb,
+        product: Product,
+        index: int | None = None,
 ):
     if product.CHECK_PRODUCT_COMPARE == 1:
         print("Check product compare flow")

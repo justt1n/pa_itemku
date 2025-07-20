@@ -277,7 +277,7 @@ def calculate_price_stock_fake(
         hostdata: dict,
         selenium: SeleniumUtil,
 ) -> Tuple[Optional[Tuple[float, str]], List[Optional[Tuple[float, str]]]]:  # Trả về tuple(min_price, list_all_prices)
-
+    print("DEBUG: Starting calculate_price_stock_fake...")
     g2g_future = None
     fun_future = None
     bij_future = None

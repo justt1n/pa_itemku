@@ -7,10 +7,10 @@ import gspread
 class GSheet:
     client: gspread.client.Client
 
-    def __init__(self, keypath="key.json"):
+    def __init__(self, keypath="keys.json"):
         self.client = self.__get_gspread(keypath)
 
-    def __get_gspread(self, keypath="key.json"):
+    def __get_gspread(self, keypath="keys.json"):
         scope = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive",

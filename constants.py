@@ -2,7 +2,7 @@ import codecs
 import json
 import os
 
-KEY_PATH = "key.json"
+KEY_PATH = "keys.json"
 DATA_PATH = "storage/output.json"
 RETRIES_TIME = 20
 DEFAULT_URL = "https://www.bijiaqi.com/"

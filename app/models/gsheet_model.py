@@ -176,16 +176,16 @@ class Product(ColSheetModel):
 
 
 class G2G(ColSheetModel):
-    G2G_CHECK: Annotated[int | None, "AA"] = 0
-    G2G_PROFIT: Annotated[float | None, "AB"] = 0
-    G2G_PRODUCT_COMPARE: Annotated[str | None, "AC"] = ''
-    G2G_DELIVERY_TIME: Annotated[int | None, "AD"] = 0
-    G2G_STOCK: Annotated[int | None, "AE"] = 0
-    G2G_MINUNIT: Annotated[int | None, "AF"] = 0
-    G2G_QUYDOIDONVI: Annotated[float | None, "AG"] = 0
-    G2G_IDSHEET_BLACKLIST: Annotated[str | None, "AH"] = ''
-    G2G_SHEET_BLACKLIST: Annotated[str | None, "AI"] = ''
-    G2G_CELL_BLACKLIST: Annotated[str | None, "AJ"] = ''
+    G2G_CHECK: Annotated[int, {COL_META_FIELD_NAME: "AA"}]
+    G2G_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "AB"}]
+    G2G_PRODUCT_COMPARE: Annotated[str, {COL_META_FIELD_NAME: "AC"}]
+    G2G_DELIVERY_TIME: Annotated[int, {COL_META_FIELD_NAME: "AD"}]
+    G2G_STOCK: Annotated[int, {COL_META_FIELD_NAME: "AE"}]
+    G2G_MINUNIT: Annotated[int, {COL_META_FIELD_NAME: "AF"}]
+    G2G_QUYDOIDONVI: Annotated[float, {COL_META_FIELD_NAME: "AG"}]
+    G2G_IDSHEET_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "AH"}] = None
+    G2G_SHEET_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "AI"}] = None
+    G2G_CELL_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "AJ"}] = None
 
     def get_blacklist(
             self,
@@ -199,21 +199,21 @@ class G2G(ColSheetModel):
 
 # BE BF BG BH BI BJ BK BL BM BN BO BP BQ BR BS
 class FUN(ColSheetModel):
-    FUN_CHECK: Annotated[int | None, "AK"] = 0
-    FUN_PROFIT: Annotated[float | None, "AL"] = 0
-    FUN_DISCOUNTFEE: Annotated[float | None, "AM"] = 0
-    FUN_PRODUCT_COMPARE: Annotated[str | None, "AN"] = ''
-    NAME2: Annotated[str | None, "AO"] = None
-    FACTION: Annotated[str | None, "AP"] = ''
-    FUN_FILTER21: Annotated[str | None, "AQ"] = None
-    FUN_FILTER22: Annotated[str | None, "AR"] = None
-    FUN_FILTER23: Annotated[str | None, "AS"] = None
-    FUN_FILTER24: Annotated[str | None, "AT"] = None
-    FUN_HESONHANDONGIA: Annotated[float | None, "AU"] = None
-    FUN_STOCK: Annotated[int | None, "AV"] = 0
-    FUN_IDSHEET_BLACKLIST: Annotated[str | None, "AW"] = ''
-    FUN_SHEET_BLACKLIST: Annotated[str | None, "AX"] = ''
-    FUN_CELL_BLACKLIST: Annotated[str | None, "AY"] = ''
+    FUN_CHECK: Annotated[int, {COL_META_FIELD_NAME: "AK"}]
+    FUN_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "AL"}]
+    FUN_DISCOUNTFEE: Annotated[float, {COL_META_FIELD_NAME: "AM"}]
+    FUN_PRODUCT_COMPARE: Annotated[str, {COL_META_FIELD_NAME: "AN"}]
+    NAME2: Annotated[str | None, {COL_META_FIELD_NAME: "AO"}] = None
+    FACTION: Annotated[str, {COL_META_FIELD_NAME: "AP"}]
+    FUN_FILTER21: Annotated[str | None, {COL_META_FIELD_NAME: "AQ"}] = None
+    FUN_FILTER22: Annotated[str | None, {COL_META_FIELD_NAME: "AR"}] = None
+    FUN_FILTER23: Annotated[str | None, {COL_META_FIELD_NAME: "AS"}] = None
+    FUN_FILTER24: Annotated[str | None, {COL_META_FIELD_NAME: "AT"}] = None
+    FUN_HESONHANDONGIA: Annotated[float | None, {COL_META_FIELD_NAME: "AU"}] = None
+    FUN_STOCK: Annotated[int, {COL_META_FIELD_NAME: "AV"}]
+    FUN_IDSHEET_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "AW"}] = None
+    FUN_SHEET_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "AX"}] = None
+    FUN_CELL_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "AY"}] = None
 
     def get_blacklist(self) -> list[str]:
         sheet_manager = StockManager(self.FUN_IDSHEET_BLACKLIST)
@@ -223,17 +223,17 @@ class FUN(ColSheetModel):
 
 # BT BJ BV BW BX BY BZ CA CB CC CD
 class BIJ(ColSheetModel):
-    BIJ_CHECK: Annotated[int | None, "AZ"] = 0
-    BIJ_PROFIT: Annotated[float | None, "BA"] = 0
-    BIJ_NAME: Annotated[str | None, "BB"] = ''
-    BIJ_SERVER: Annotated[str | None, "BC"] = ''
-    BIJ_DELIVERY_METHOD: Annotated[str | None, "BD"] = ''
-    BIJ_STOCKMIN: Annotated[int | None, "BE"] = 0
-    BIJ_STOCKMAX: Annotated[int | None, "BF"] = 0
-    HESONHANDONGIA3: Annotated[float | None, "BG"] = 0
-    BIJ_IDSHEET_BLACKLIST: Annotated[str | None, "BH"] = ''
-    BIJ_SHEET_BLACKLIST: Annotated[str | None, "BI"] = ''
-    BIJ_CELL_BLACKLIST: Annotated[str | None, "BJ"] = ''
+    BIJ_CHECK: Annotated[int, {COL_META_FIELD_NAME: "AZ"}]
+    BIJ_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "BA"}]
+    BIJ_NAME: Annotated[str | None, {COL_META_FIELD_NAME: "BB"}] = None
+    BIJ_SERVER: Annotated[str | None, {COL_META_FIELD_NAME: "BC"}] = None
+    BIJ_DELIVERY_METHOD: Annotated[str | None, {COL_META_FIELD_NAME: "BD"}] = None
+    BIJ_STOCKMIN: Annotated[int, {COL_META_FIELD_NAME: "BE"}]
+    BIJ_STOCKMAX: Annotated[int, {COL_META_FIELD_NAME: "BF"}]
+    HESONHANDONGIA3: Annotated[float, {COL_META_FIELD_NAME: "BG"}]
+    BIJ_IDSHEET_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "BH"}] = None
+    BIJ_SHEET_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "BI"}] = None
+    BIJ_CELL_BLACKLIST: Annotated[str | None, {COL_META_FIELD_NAME: "BJ"}] = None
 
     def get_blacklist(self, gsheet: GSheet) -> list[str]:
         sheet_manager = StockManager(self.BIJ_IDSHEET_BLACKLIST)
@@ -243,22 +243,22 @@ class BIJ(ColSheetModel):
 
 # CS CT CU CV CW CX
 class DD(ColSheetModel):
-    DD_CHECK: Annotated[int | None, "BK"] = 0
-    DD_PROFIT: Annotated[float | None, "BL"] = 0
-    DD_QUYDOIDONVI: Annotated[float | None, "BM"] = 0
-    DD_PRODUCT_COMPARE: Annotated[str | None, "BN"] = ''
-    DD_STOCKMIN: Annotated[int | None, "BO"] = 0
-    DD_LEVELMIN: Annotated[int | None, "BP"] = 0
+    DD_CHECK: Annotated[int, {COL_META_FIELD_NAME: "BK"}]
+    DD_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "BL"}]
+    DD_QUYDOIDONVI: Annotated[float, {COL_META_FIELD_NAME: "BM"}]
+    DD_PRODUCT_COMPARE: Annotated[str | None, {COL_META_FIELD_NAME: "BN"}] = None
+    DD_STOCKMIN: Annotated[int, {COL_META_FIELD_NAME: "BO"}]
+    DD_LEVELMIN: Annotated[int, {COL_META_FIELD_NAME: "BP"}]
 
 
 class PriceSheet1(ColSheetModel):
-    SHEET_CHECK: Annotated[int | None, "BQ"] = 0
-    SHEET_PROFIT: Annotated[float | None, "BR"] = 0
-    HE_SO_NHAN: Annotated[float | None, "BS"] = 0
-    QUYDOIDONVI: Annotated[float | None, "BT"] = 0
-    ID_SHEET_PRICE: Annotated[str | None, "BU"] = ""
-    SHEET_PRICE: Annotated[str | None, "BV"] = ""
-    CELL_PRICE: Annotated[str | None, "BW"] = ""
+    SHEET_CHECK: Annotated[int, {COL_META_FIELD_NAME: "BQ"}]
+    SHEET_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "BR"}]
+    HE_SO_NHAN: Annotated[float, {COL_META_FIELD_NAME: "BS"}]
+    QUYDOIDONVI: Annotated[float, {COL_META_FIELD_NAME: "BT"}]
+    ID_SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "BU"}] = None
+    SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "BV"}] = None
+    CELL_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "BW"}] = None
 
     def get_price(self) -> float:
         sheet_manager = StockManager(self.ID_SHEET_PRICE)
@@ -267,13 +267,13 @@ class PriceSheet1(ColSheetModel):
 
 
 class PriceSheet2(ColSheetModel):
-    SHEET_CHECK: Annotated[int | None, "BX"] = 0
-    SHEET_PROFIT: Annotated[float | None, "BY"] = 0
-    HE_SO_NHAN: Annotated[float | None, "BZ"] = 0
-    QUYDOIDONVI: Annotated[float | None, "CA"] = 0
-    ID_SHEET_PRICE: Annotated[str | None, "CB"] = ""
-    SHEET_PRICE: Annotated[str | None, "CC"] = ""
-    CELL_PRICE: Annotated[str | None, "CD"] = ""
+    SHEET_CHECK: Annotated[int, {COL_META_FIELD_NAME: "BX"}]
+    SHEET_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "BY"}]
+    HE_SO_NHAN: Annotated[float, {COL_META_FIELD_NAME: "BZ"}]
+    QUYDOIDONVI: Annotated[float, {COL_META_FIELD_NAME: "CA"}]
+    ID_SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CB"}] = None
+    SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CC"}] = None
+    CELL_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CD"}] = None
 
     def get_price(self) -> float:
         sheet_manager = StockManager(self.ID_SHEET_PRICE)
@@ -282,13 +282,13 @@ class PriceSheet2(ColSheetModel):
 
 
 class PriceSheet3(ColSheetModel):
-    SHEET_CHECK: Annotated[int | None, "CE"] = 0
-    SHEET_PROFIT: Annotated[float | None, "CF"] = 0
-    HE_SO_NHAN: Annotated[float | None, "CG"] = 0
-    QUYDOIDONVI: Annotated[float | None, "CH"] = 0
-    ID_SHEET_PRICE: Annotated[str | None, "CI"] = ""
-    SHEET_PRICE: Annotated[str | None, "CJ"] = ""
-    CELL_PRICE: Annotated[str | None, "CK"] = ""
+    SHEET_CHECK: Annotated[int, {COL_META_FIELD_NAME: "CE"}]
+    SHEET_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "CF"}]
+    HE_SO_NHAN: Annotated[float, {COL_META_FIELD_NAME: "CG"}]
+    QUYDOIDONVI: Annotated[float, {COL_META_FIELD_NAME: "CH"}]
+    ID_SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CI"}] = None
+    SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CJ"}] = None
+    CELL_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CK"}] = None
 
     def get_price(self) -> float:
         sheet_manager = StockManager(self.ID_SHEET_PRICE)
@@ -297,13 +297,13 @@ class PriceSheet3(ColSheetModel):
 
 
 class PriceSheet4(ColSheetModel):
-    SHEET_CHECK: Annotated[int | None, "CL"] = 0
-    SHEET_PROFIT: Annotated[float | None, "CM"] = 0
-    HE_SO_NHAN: Annotated[float | None, "CN"] = 0
-    QUYDOIDONVI: Annotated[float | None, "CO"] = 0
-    ID_SHEET_PRICE: Annotated[str | None, "CP"] = ""
-    SHEET_PRICE: Annotated[str | None, "CQ"] = ""
-    CELL_PRICE: Annotated[str | None, "CR"] = ""
+    SHEET_CHECK: Annotated[int, {COL_META_FIELD_NAME: "CL"}]
+    SHEET_PROFIT: Annotated[float, {COL_META_FIELD_NAME: "CM"}]
+    HE_SO_NHAN: Annotated[float, {COL_META_FIELD_NAME: "CN"}]
+    QUYDOIDONVI: Annotated[float, {COL_META_FIELD_NAME: "CO"}]
+    ID_SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CP"}] = None
+    SHEET_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CQ"}] = None
+    CELL_PRICE: Annotated[str | None, {COL_META_FIELD_NAME: "CR"}] = None
 
     def get_price(self) -> float:
         sheet_manager = StockManager(self.ID_SHEET_PRICE)
