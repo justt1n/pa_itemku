@@ -8,4 +8,4 @@ deactivate
 .\venv\Scripts\Activate.ps1
 
 # Install deps
-python -m pip install -r requirements.lock
+python -m pip install -r requirements.txt
