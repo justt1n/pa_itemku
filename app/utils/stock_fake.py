@@ -2,7 +2,7 @@ import concurrent.futures
 import os
 import re
 from enum import Enum
-from typing import Optional, Tuple, List, TypeVar, Type
+from typing import Optional, Tuple, List, TypeVar, Type, Any
 
 import gspread
 from pydantic import BaseModel, ValidationError
@@ -19,6 +19,7 @@ from app.utils.g2g_extract import g2g_extract_offer_items, G2GOfferItem
 from app.utils.ggsheet import (
     GSheet,
 )
+from app.utils.google_api import StockManager
 
 
 class ExtraInfor:
@@ -496,14 +497,22 @@ def calculate_price_stock_fake(
     s3_min_price_usd = results.get('s3')
     s4_min_price_usd = results.get('s4')
     # convert all this price if not None from usd to idr
-    g2g_min_price = convert_usd_to_idr(g2g_min_price_usd)
-    fun_min_price = convert_usd_to_idr(fun_min_price_usd)
-    bij_min_price = convert_usd_to_idr(bij_min_price_usd)
-    dd_min_price = convert_usd_to_idr(dd_min_price_usd)
-    s1_min_price = convert_usd_to_idr(s1_min_price_usd)
-    s2_min_price = convert_usd_to_idr(s2_min_price_usd)
-    s3_min_price = convert_usd_to_idr(s3_min_price_usd)
-    s4_min_price = convert_usd_to_idr(s4_min_price_usd)
+    try:
+        RATE_SHEET_ID = os.getenv("RATE_SHEET_ID")
+        RATE_SHEET_NAME = os.getenv("RATE_SHEET_NAME")
+        CELL_RATE_USD = os.getenv("CELL_RATE_USD")
+        rate_sheet = StockManager(RATE_SHEET_ID)
+        rate = rate_sheet.get_cell_float_value(f"'{RATE_SHEET_NAME}'!{CELL_RATE_USD}")
+    except Exception:
+        rate = 16326
+    g2g_min_price = convert_usd_to_idr(g2g_min_price_usd, rate)
+    fun_min_price = convert_usd_to_idr(fun_min_price_usd, rate)
+    bij_min_price = convert_usd_to_idr(bij_min_price_usd, rate)
+    dd_min_price = convert_usd_to_idr(dd_min_price_usd, rate)
+    s1_min_price = convert_usd_to_idr(s1_min_price_usd, rate)
+    s2_min_price = convert_usd_to_idr(s2_min_price_usd, rate)
+    s3_min_price = convert_usd_to_idr(s3_min_price_usd, rate)
+    s4_min_price = convert_usd_to_idr(s4_min_price_usd, rate)
 
     all_prices: List[Optional[Tuple[float, str]]] = [g2g_min_price, fun_min_price, bij_min_price, dd_min_price,
                                                      s1_min_price, s2_min_price, s3_min_price, s4_min_price]
@@ -519,7 +528,7 @@ def calculate_price_stock_fake(
     return final_min_price, all_prices
 
 
-def convert_usd_to_idr(price_in_usd: float | None) -> Tuple[float, str] | None:
+def convert_usd_to_idr(price_in_usd: float | None, rate) -> list[Any] | None:
     """
     Converts a price from USD to IDR, handling None values.
 
@@ -531,7 +540,7 @@ def convert_usd_to_idr(price_in_usd: float | None) -> Tuple[float, str] | None:
     """
     # Exchange rate as of July 2025. In a real-world application,
     # you would fetch this from a live API.
-    USD_TO_IDR_RATE = int(os.getenv("USD_TO_IDR_RATE", 16326.00))
+    USD_TO_IDR_RATE = rate
 
     if price_in_usd is None:
         return None
