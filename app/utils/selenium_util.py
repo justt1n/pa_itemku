@@ -35,7 +35,7 @@ class SeleniumUtil:
             if self.driver is None:
                 raise WebDriverException("Failed to open driver and navigate to URL after retries")
         elif mode == 2:
-            # _chrome_options.add_argument("--headless")
+            _chrome_options.add_argument("--headless")
 
             for _ in range(_retry_time):
                 try:

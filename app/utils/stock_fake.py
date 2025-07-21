@@ -1,4 +1,5 @@
 import concurrent.futures
+import os
 import re
 from enum import Enum
 from typing import Optional, Tuple, List, TypeVar, Type
@@ -160,10 +161,10 @@ def g2g_lowest_price(
     return G2GOfferItem.min_offer_item(filtered_g2g_offer_items)
 
 
-def _process_g2g(row: Row, gsheet: GSheet, selenium: SeleniumUtil) -> Optional[Tuple[float, str]]:
+def _process_g2g(row: Row, gsheet: GSheet) -> Optional[Tuple[float, str]]:
     try:
         print("Starting G2G fetch...")
-        g2g_offer_items = g2g_extract_offer_items(row.g2g.G2G_PRODUCT_COMPARE, selenium)
+        g2g_offer_items = g2g_extract_offer_items(row.g2g.G2G_PRODUCT_COMPARE)
         filtered_g2g_offer_items = G2GOfferItem.filter_valid_g2g_offer_item(
             g2g=row.g2g,
             g2g_blacklist=row.g2g.get_blacklist(gsheet),
@@ -221,7 +222,7 @@ def _process_fun(row: Row, gsheet: GSheet) -> Optional[Tuple[float, str]]:
         return None
 
 
-def _process_bij(bij: BIJ, gsheet: GSheet, hostdata: dict, selenium: SeleniumUtil) -> Optional[Tuple[float, str]]:
+def _process_bij(bij: BIJ, gsheet: GSheet, hostdata: dict) -> Optional[Tuple[float, str]]:
     try:
         print("Starting BIJ fetch...")
         CNY_RATE = getCNYRate()
@@ -229,7 +230,7 @@ def _process_bij(bij: BIJ, gsheet: GSheet, hostdata: dict, selenium: SeleniumUti
         bij_min_offer_item = None
         for attempt in range(2):
             try:
-                bij_min_offer_item = bij_lowest_price(hostdata, selenium, bij, black_list=_black_list)
+                bij_min_offer_item = bij_lowest_price(hostdata, bij, black_list=_black_list)
                 break
             except Exception as e:
                 print(f"Attempt {attempt + 1} failed for BIJ. Error: {e}")
@@ -365,7 +366,6 @@ def calculate_price_stock_fake(
         gsheet: GSheet,
         row: Row,
         hostdata: dict,
-        selenium: SeleniumUtil,
 ) -> Tuple[Optional[Tuple[float, str]], List[Optional[Tuple[float, str]]]]:  # Trả về tuple(min_price, list_all_prices)
     print("DEBUG: Starting calculate_price_stock_fake...")
     g2g_future = None
@@ -385,7 +385,7 @@ def calculate_price_stock_fake(
         # Submit G2G task
         if row.g2g.G2G_CHECK == 1:
             print("Submitting G2G task...")
-            g2g_future = executor.submit(_process_g2g, row, gsheet, selenium)
+            g2g_future = executor.submit(_process_g2g, row, gsheet)
 
         # Submit FUN task
         if row.fun.FUN_CHECK == 1:
@@ -395,7 +395,7 @@ def calculate_price_stock_fake(
         # Submit BIJ task
         if row.bij.BIJ_CHECK == 1:
             print("Submitting BIJ task...")
-            bij_future = executor.submit(_process_bij, row.bij, gsheet, hostdata, selenium)
+            bij_future = executor.submit(_process_bij, row.bij, gsheet, hostdata)
 
         if row.dd.DD_CHECK == 1:
             print("Submitting DD task...")
@@ -487,14 +487,23 @@ def calculate_price_stock_fake(
                 print(f"S4 task failed with exception: {e}")
                 results['s4'] = None
 
-    g2g_min_price = results.get('g2g')
-    fun_min_price = results.get('fun')
-    bij_min_price = results.get('bij')
-    dd_min_price = results.get('dd')
-    s1_min_price = results.get('s1')
-    s2_min_price = results.get('s2')
-    s3_min_price = results.get('s3')
-    s4_min_price = results.get('s4')
+    g2g_min_price_usd = results.get('g2g')
+    fun_min_price_usd = results.get('fun')
+    bij_min_price_usd = results.get('bij')
+    dd_min_price_usd = results.get('dd')
+    s1_min_price_usd = results.get('s1')
+    s2_min_price_usd = results.get('s2')
+    s3_min_price_usd = results.get('s3')
+    s4_min_price_usd = results.get('s4')
+    # convert all this price if not None from usd to idr
+    g2g_min_price = convert_usd_to_idr(g2g_min_price_usd)
+    fun_min_price = convert_usd_to_idr(fun_min_price_usd)
+    bij_min_price = convert_usd_to_idr(bij_min_price_usd)
+    dd_min_price = convert_usd_to_idr(dd_min_price_usd)
+    s1_min_price = convert_usd_to_idr(s1_min_price_usd)
+    s2_min_price = convert_usd_to_idr(s2_min_price_usd)
+    s3_min_price = convert_usd_to_idr(s3_min_price_usd)
+    s4_min_price= convert_usd_to_idr(s4_min_price_usd)
 
     all_prices: List[Optional[Tuple[float, str]]] = [g2g_min_price, fun_min_price, bij_min_price, dd_min_price,
                                                      s1_min_price, s2_min_price, s3_min_price, s4_min_price]
@@ -508,6 +517,28 @@ def calculate_price_stock_fake(
         print(f"Overall minimum price: {final_min_price}")
 
     return final_min_price, all_prices
+
+
+def convert_usd_to_idr(price_in_usd: float | None) -> Tuple[float, str] | None:
+    """
+    Converts a price from USD to IDR, handling None values.
+
+    Args:
+        price_in_usd: The price in USD, or None.
+
+    Returns:
+        The price in IDR rounded to the nearest whole number, or None if the input was None.
+    """
+    # Exchange rate as of July 2025. In a real-world application,
+    # you would fetch this from a live API.
+    USD_TO_IDR_RATE = int(os.getenv("USD_TO_IDR_RATE", 16326.00))
+
+    if price_in_usd is None:
+        return None
+
+    # Calculate and round to the nearest whole Rupiah
+    price = price_in_usd[0] * USD_TO_IDR_RATE
+    return [round(price), price_in_usd[1]]  # Return as a tuple with the seller name
 
 
 def get_row(worksheet: gspread.worksheet.Worksheet, row_index: int) -> Row:

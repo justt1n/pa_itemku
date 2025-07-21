@@ -177,10 +177,10 @@ def check_product_compare_flow(
     # ==================
 
     if min_price_product is None:
-        min_price = max(min_price, int(order_site_min_price))
+        new_min_price = max(min_price, int(order_site_min_price))
         target_price = update_by_min_price_or_max_price(
             product=product,
-            min_price=min_price,
+            min_price=new_min_price,
             max_price=max_price,
         )
 
@@ -197,10 +197,10 @@ def check_product_compare_flow(
         product.Last_update = last_update_message
         product.update()
     else:
-        min_price = max(min_price, int(order_site_min_price))
+        new_min_price = max(min_price, int(order_site_min_price))
         target_price = calculate_competitive_price(
             product=product,
-            min_price=min_price,
+            min_price=new_min_price,
             compare_price=min_price_product.price,
         )
 
@@ -277,9 +277,8 @@ def calculate_order_site_price(index: int | None = None):
         worksheet=worksheet,
         row_index=index
     )
-    headless_browser = SeleniumUtil(mode=2)
     stock_fake_price_tuple, stock_fake_items = calculate_price_stock_fake(
-        gsheet=gsheet, row=row, hostdata=constants.BIJ_HOST_DATA, selenium=headless_browser
+        gsheet=gsheet, row=row, hostdata=constants.BIJ_HOST_DATA
     )
     if stock_fake_price_tuple is None or stock_fake_price_tuple[0] <= 0:  # Ensure valid price
         print("Stock fake price is None or not positive.")
