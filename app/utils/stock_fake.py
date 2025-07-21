@@ -420,7 +420,7 @@ def calculate_price_stock_fake(
         if g2g_future:
             try:
                 results['g2g'] = g2g_future.result()  # Lấy kết quả từ luồng G2G
-                print(f"G2G Result received: {results['g2g']}")
+                print(f"G2G Result received: {results['g2g']} USD")
             except Exception as e:
                 print(f"G2G task failed with exception: {e}")
                 results['g2g'] = None
@@ -430,7 +430,7 @@ def calculate_price_stock_fake(
         if fun_future:
             try:
                 results['fun'] = fun_future.result()  # Lấy kết quả từ luồng FUN
-                print(f"FUN Result received: {results['fun']}")
+                print(f"FUN Result received: {results['fun']} USD")
             except Exception as e:
                 print(f"FUN task failed with exception: {e}")
                 results['fun'] = None
@@ -440,7 +440,7 @@ def calculate_price_stock_fake(
         if bij_future:
             try:
                 results['bij'] = bij_future.result()  # Lấy kết quả từ luồng BIJ
-                print(f"BIJ Result received: {results['bij']}")
+                print(f"BIJ Result received: {results['bij']} USD")
             except Exception as e:
                 print(f"BIJ task failed with exception: {e}")
                 results['bij'] = None
@@ -450,7 +450,7 @@ def calculate_price_stock_fake(
         if dd_future:
             try:
                 results['dd'] = dd_future.result()  # Lấy kết quả từ luồng DD
-                print(f"DD Result received: {results['dd']}")
+                print(f"DD Result received: {results['dd']} USD")
             except Exception as e:
                 print(f"DD task failed with exception: {e}")
                 results['dd'] = None
@@ -458,7 +458,7 @@ def calculate_price_stock_fake(
         if s1_future:
             try:
                 results['s1'] = s1_future.result()
-                print(f"S1 Result received: {results['s1']}")
+                print(f"S1 Result received: {results['s1']} USD")
             except Exception as e:
                 print(f"S1 task failed with exception: {e}")
                 results['s1'] = None
@@ -466,7 +466,7 @@ def calculate_price_stock_fake(
         if s2_future:
             try:
                 results['s2'] = s2_future.result()
-                print(f"S2 Result received: {results['s2']}")
+                print(f"S2 Result received: {results['s2']} USD")
             except Exception as e:
                 print(f"S2 task failed with exception: {e}")
                 results['s2'] = None
@@ -474,7 +474,7 @@ def calculate_price_stock_fake(
         if s3_future:
             try:
                 results['s3'] = s3_future.result()
-                print(f"S3 Result received: {results['s3']}")
+                print(f"S3 Result received: {results['s3']} USD")
             except Exception as e:
                 print(f"S3 task failed with exception: {e}")
                 results['s3'] = None
@@ -482,7 +482,7 @@ def calculate_price_stock_fake(
         if s4_future:
             try:
                 results['s4'] = s4_future.result()
-                print(f"S4 Result received: {results['s4']}")
+                print(f"S4 Result received: {results['s4']} USD")
             except Exception as e:
                 print(f"S4 task failed with exception: {e}")
                 results['s4'] = None
