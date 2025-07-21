@@ -68,6 +68,7 @@ def main(sb):
 
         except Exception as e:
             print(f"FAILED AT ROW: {index}")
+            print(e)
             try:
                 now = datetime.now()
                 worksheet.batch_update(
@@ -81,7 +82,6 @@ def main(sb):
             except Exception as e1:
                 print(e1)
                 time.sleep(10)
-            logger.exception(e, exc_info=True)
 
         time.sleep(4)
 

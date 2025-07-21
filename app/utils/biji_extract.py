@@ -121,12 +121,10 @@ def get_hostname_by_host_id(data, hostid):
 )
 def bij_lowest_price(
         BIJ_HOST_DATA: dict,
-        selenium: SeleniumUtil,
         data: BIJ,
         black_list) -> Optional[ShopDemand]:
     data.BIJ_NAME = get_hostname_by_host_id(BIJ_HOST_DATA, data.BIJ_NAME)
     data.BIJ_NAME = str(data.BIJ_NAME) + " "
-    selenium.get("https://www.bijiaqi.com/")
     try:
         item_list = get_price_list(BIJ_HOST_DATA, int(data.BIJ_SERVER))
         lowest_price = get_the_lowest_price(item_list, data.BIJ_DELIVERY_METHOD, data.BIJ_STOCKMIN, data.BIJ_STOCKMAX,

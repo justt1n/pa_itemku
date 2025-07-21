@@ -3,7 +3,7 @@ import re
 
 import constants
 from app.models.crwl_api_models import Product as CrwlProduct
-from app.models.gsheet_model import Product, G2G, BIJ, FUN, PriceSheet1, PriceSheet2, PriceSheet3, PriceSheet4, DD
+from app.models.gsheet_model import Product
 from app.processes.crwl import extract_data
 from app.processes.crwl_api import crwl_api
 from app.processes.itemku_api import itemku_api
@@ -11,7 +11,7 @@ from app.shared.consts import KEYWORD_SPLIT_BY_CHARACTER
 from app.utils.ggsheet import GSheet
 from app.utils.gsheet import worksheet
 from app.utils.selenium_util import SeleniumUtil
-from app.utils.stock_fake import calculate_price_stock_fake, Row
+from app.utils.stock_fake import calculate_price_stock_fake, get_row
 from app.utils.update_messages import (
     update_with_min_price_message,
     update_with_comparing_seller_message,
@@ -123,46 +123,46 @@ def check_product_compare_flow(
         if _product.seller.shop_name not in blacklist:
             # Check Include and Exclude keyword in product name
             if (
-                (
-                    product.INCLUDE_KEYWORD
-                    and all(
+                    (
+                            product.INCLUDE_KEYWORD
+                            and all(
                         (
-                            keyword.lower()
-                            in _product.name.lower() + _product.server_name.lower()
-                            if _product.server_name
-                            else ""
+                                keyword.lower()
+                                in _product.name.lower() + _product.server_name.lower()
+                                if _product.server_name
+                                else ""
                         )
                         for keyword in product.INCLUDE_KEYWORD.split(
                             KEYWORD_SPLIT_BY_CHARACTER
                         )
                     )
-                )
-                or product.INCLUDE_KEYWORD is None
+                    )
+                    or product.INCLUDE_KEYWORD is None
             ) and (
-                product.EXCLUDE_KEYWORD
-                and not any(
-                    (
+                    product.EXCLUDE_KEYWORD
+                    and not any(
+                (
                         keyword.lower()
                         in _product.name.lower() + _product.server_name.lower()
                         if _product.server_name
                         else ""
-                    )
-                    for keyword in product.EXCLUDE_KEYWORD.split(
-                        KEYWORD_SPLIT_BY_CHARACTER
-                    )
                 )
-                or product.EXCLUDE_KEYWORD is None
+                for keyword in product.EXCLUDE_KEYWORD.split(
+                    KEYWORD_SPLIT_BY_CHARACTER
+                )
+            )
+                    or product.EXCLUDE_KEYWORD is None
             ):
                 # print(f"VALID: {_product}")
                 valid_keywords_products.append(_product)
                 # Check product price in valid range
                 if (max_price and min_price <= _product.price <= max_price) or (
-                    max_price is None and min_price <= _product.price
+                        max_price is None and min_price <= _product.price
                 ):
                     valid_products.append(_product)
                     if (
-                        min_price_product is None
-                        or _product.price < min_price_product.price
+                            min_price_product is None
+                            or _product.price < min_price_product.price
                     ):
                         min_price_product = _product
 
@@ -177,10 +177,10 @@ def check_product_compare_flow(
     # ==================
 
     if min_price_product is None:
-        min_price = max(min_price, int(order_site_min_price))
+        new_min_price = max(min_price, int(order_site_min_price))
         target_price = update_by_min_price_or_max_price(
             product=product,
-            min_price=min_price,
+            min_price=new_min_price,
             max_price=max_price,
         )
 
@@ -197,10 +197,10 @@ def check_product_compare_flow(
         product.Last_update = last_update_message
         product.update()
     else:
-        min_price = max(min_price, int(order_site_min_price))
+        new_min_price = max(min_price, int(order_site_min_price))
         target_price = calculate_competitive_price(
             product=product,
-            min_price=min_price,
+            min_price=new_min_price,
             compare_price=min_price_product.price,
         )
 
@@ -254,28 +254,31 @@ def no_check_product_compare_flow(
 def calculate_order_site_price(index: int | None = None):
     gsheet = GSheet(constants.KEY_PATH)
 
-    g2g = G2G.get(worksheet, index)
-    bij = BIJ.get(worksheet, index)
-    fun = FUN.get(worksheet, index)
-    dd = DD.get(worksheet, index)
-    p1 = PriceSheet1.get(worksheet, index)
-    p2 = PriceSheet2.get(worksheet, index)
-    p3 = PriceSheet3.get(worksheet, index)
-    p4 = PriceSheet4.get(worksheet, index)
-    row = Row(
-        row_index=index,
-        g2g=g2g,
-        bij=bij,
-        fun=fun,
-        dd=dd,
-        s1=p1,
-        s2=p2,
-        s3=p3,
-        s4=p4,
+    # g2g = G2G.get(worksheet, index)
+    # bij = BIJ.get(worksheet, index)
+    # fun = FUN.get(worksheet, index)
+    # dd = DD.get(worksheet, index)
+    # p1 = PriceSheet1.get(worksheet, index)
+    # p2 = PriceSheet2.get(worksheet, index)
+    # p3 = PriceSheet3.get(worksheet, index)
+    # p4 = PriceSheet4.get(worksheet, index)
+    # row = Row(
+    #     row_index=index,
+    #     g2g=g2g,
+    #     bij=bij,
+    #     fun=fun,
+    #     dd=dd,
+    #     s1=p1,
+    #     s2=p2,
+    #     s3=p3,
+    #     s4=p4,
+    # )
+    row = get_row(
+        worksheet=worksheet,
+        row_index=index
     )
-    headless_browser = SeleniumUtil(mode=2)
     stock_fake_price_tuple, stock_fake_items = calculate_price_stock_fake(
-        gsheet=gsheet, row=row, hostdata=constants.BIJ_HOST_DATA, selenium=headless_browser
+        gsheet=gsheet, row=row, hostdata=constants.BIJ_HOST_DATA
     )
     if stock_fake_price_tuple is None or stock_fake_price_tuple[0] <= 0:  # Ensure valid price
         print("Stock fake price is None or not positive.")
