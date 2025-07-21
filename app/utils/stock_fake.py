@@ -19,7 +19,6 @@ from app.utils.g2g_extract import g2g_extract_offer_items, G2GOfferItem
 from app.utils.ggsheet import (
     GSheet,
 )
-from app.utils.selenium_util import SeleniumUtil
 
 
 class ExtraInfor:
@@ -62,7 +61,7 @@ class DeliveryTime(BaseModel):
 
     @staticmethod
     def from_text(
-            txt: str,
+        txt: str,
     ) -> "DeliveryTime":
         # Remove duplicated white space
         while "  " in txt:
@@ -87,7 +86,7 @@ class OfferItem(BaseModel):
 
     @staticmethod
     def min_offer_item(
-            offer_items: list["OfferItem"],
+        offer_items: list["OfferItem"],
     ) -> "OfferItem":
         min = offer_items[0]
         for offer_item in offer_items:
@@ -126,16 +125,16 @@ class Row:
     s4: PriceSheet4
 
     def __init__(
-            self,
-            row_index: int,
-            g2g: G2G,
-            fun: FUN,
-            bij: BIJ,
-            dd: DD,
-            s1: PriceSheet1,
-            s2: PriceSheet2,
-            s3: PriceSheet3,
-            s4: PriceSheet4,
+        self,
+        row_index: int,
+        g2g: G2G,
+        fun: FUN,
+        bij: BIJ,
+        dd: DD,
+        s1: PriceSheet1,
+        s2: PriceSheet2,
+        s3: PriceSheet3,
+        s4: PriceSheet4,
     ) -> None:
         self.row_index = row_index
         self.g2g = g2g
@@ -149,8 +148,8 @@ class Row:
 
 
 def g2g_lowest_price(
-        gsheet: GSheet,
-        g2g: G2G,
+    gsheet: GSheet,
+    g2g: G2G,
 ) -> G2GOfferItem:
     g2g_offer_items = g2g_extract_offer_items(g2g.G2G_PRODUCT_COMPARE)
     filtered_g2g_offer_items = G2GOfferItem.filter_valid_g2g_offer_item(
@@ -208,7 +207,8 @@ def _process_fun(row: Row, gsheet: GSheet) -> Optional[Tuple[float, str]]:
             fun_min_offer_item = FUNOfferItem.min_offer_item(filtered_fun_offer_items)
             fun_min_price = (
                 round(
-                    fun_min_offer_item.price * row.fun.FUN_PROFIT * row.fun.FUN_DISCOUNTFEE * row.fun.FUN_HESONHANDONGIA,
+                    fun_min_offer_item.price * row.fun.FUN_PROFIT * row.fun.FUN_DISCOUNTFEE *
+                    row.fun.FUN_HESONHANDONGIA,
                     4),
                 fun_min_offer_item.seller
             )
@@ -363,9 +363,9 @@ def _process_dd(row: Row, gsheet: GSheet) -> Optional[Tuple[float, str]]:
 @retry(retries=2, delay=0.1)
 @time_execution
 def calculate_price_stock_fake(
-        gsheet: GSheet,
-        row: Row,
-        hostdata: dict,
+    gsheet: GSheet,
+    row: Row,
+    hostdata: dict,
 ) -> Tuple[Optional[Tuple[float, str]], List[Optional[Tuple[float, str]]]]:  # Trả về tuple(min_price, list_all_prices)
     print("DEBUG: Starting calculate_price_stock_fake...")
     g2g_future = None
@@ -503,7 +503,7 @@ def calculate_price_stock_fake(
     s1_min_price = convert_usd_to_idr(s1_min_price_usd)
     s2_min_price = convert_usd_to_idr(s2_min_price_usd)
     s3_min_price = convert_usd_to_idr(s3_min_price_usd)
-    s4_min_price= convert_usd_to_idr(s4_min_price_usd)
+    s4_min_price = convert_usd_to_idr(s4_min_price_usd)
 
     all_prices: List[Optional[Tuple[float, str]]] = [g2g_min_price, fun_min_price, bij_min_price, dd_min_price,
                                                      s1_min_price, s2_min_price, s3_min_price, s4_min_price]
@@ -584,9 +584,9 @@ T = TypeVar('T', bound='ColSheetModel')
 
 
 def _get_models_from_row(
-        worksheet: gspread.worksheet.Worksheet,
-        model_classes: List[Type[T]],
-        row_index: int,
+    worksheet: gspread.worksheet.Worksheet,
+    model_classes: List[Type[T]],
+    row_index: int,
 ) -> List[T]:
     """
     (Hàm nội bộ) Lấy dữ liệu cho nhiều model Pydantic từ một dòng duy nhất.

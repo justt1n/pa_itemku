@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict, ValidationIn
 from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 
 from app.models.gsheet_model import BIJ
-from app.utils.selenium_util import SeleniumUtil
 
 
 class FlexibleBaseModel(BaseModel):
@@ -120,15 +119,15 @@ def get_hostname_by_host_id(data, hostid):
     stop=stop_after_attempt(5)
 )
 def bij_lowest_price(
-        BIJ_HOST_DATA: dict,
-        data: BIJ,
-        black_list) -> Optional[ShopDemand]:
+    BIJ_HOST_DATA: dict,
+    data: BIJ,
+    black_list) -> Optional[ShopDemand]:
     data.BIJ_NAME = get_hostname_by_host_id(BIJ_HOST_DATA, data.BIJ_NAME)
     data.BIJ_NAME = str(data.BIJ_NAME) + " "
     try:
         item_list = get_price_list(BIJ_HOST_DATA, int(data.BIJ_SERVER))
         lowest_price = get_the_lowest_price(item_list, data.BIJ_DELIVERY_METHOD, data.BIJ_STOCKMIN, data.BIJ_STOCKMAX,
-                                            black_list)
+            black_list)
         return lowest_price
     except Exception as e:
         raise RuntimeError(f"Error getting BIJ lowest price: {e}")
@@ -152,11 +151,11 @@ def get_price_list(server_map: dict, server_id: int) -> list[ShopDemand] | None:
 
 
 def get_the_lowest_price(
-        items: List['ShopDemand'],
-        delivery_types: str,
-        min_qty: int,
-        max_qty: int,
-        black_list=None
+    items: List['ShopDemand'],
+    delivery_types: str,
+    min_qty: int,
+    max_qty: int,
+    black_list=None
 ) -> Optional['ShopDemand']:
     if not items:
         return None
@@ -170,8 +169,8 @@ def get_the_lowest_price(
     for item in items:
         # 3. Check if the item matches all conditions
         if (item.min_quantity >= min_qty and
-                item.sum_quantity <= max_qty and
-                item.delivery_method_label in allowed_delivery_methods):
+            item.sum_quantity <= max_qty and
+            item.delivery_method_label in allowed_delivery_methods):
             if black_list is not None and item.merchant.store_name not in black_list:
                 filtered_items.append(item)
     try:
