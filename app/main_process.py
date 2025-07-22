@@ -171,12 +171,13 @@ def check_product_compare_flow(
     # project add order site price
     # get price in order site then compare with product price
     order_site_min_price = calculate_order_site_price(index)
+    new_min_price = min_price
     if order_site_min_price is not None:
         print(f"Order site min price: {order_site_min_price}")
+        new_min_price = max(min_price, int(order_site_min_price))
     # ==================
 
     if min_price_product is None:
-        new_min_price = max(min_price, int(order_site_min_price))
         target_price = update_by_min_price_or_max_price(
             product=product,
             min_price=new_min_price,
@@ -196,7 +197,6 @@ def check_product_compare_flow(
         product.Last_update = last_update_message
         product.update()
     else:
-        new_min_price = max(min_price, int(order_site_min_price))
         target_price = calculate_competitive_price(
             product=product,
             min_price=new_min_price,
