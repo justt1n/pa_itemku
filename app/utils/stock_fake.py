@@ -525,7 +525,7 @@ def calculate_price_stock_fake(
         final_min_price = min(valid_prices, key=lambda x: x[0])
         print(f"Overall minimum price: {final_min_price}")
 
-    return final_min_price, all_prices
+    return final_min_price, valid_prices
 
 
 def convert_usd_to_idr(price_in_usd: float | None, rate) -> list[Any] | None:
