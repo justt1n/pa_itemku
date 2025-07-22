@@ -170,11 +170,14 @@ def check_product_compare_flow(
 
     # project add order site price
     # get price in order site then compare with product price
-    order_site_min_price = calculate_order_site_price(index)
+    order_site_min_price, stock_fake_items = calculate_order_site_price(index)
     new_min_price = min_price
     if order_site_min_price is not None:
         print(f"Order site min price: {order_site_min_price}")
         new_min_price = max(min_price, int(order_site_min_price))
+        stock_fake_str = ""
+        for item in stock_fake_items:
+            stock_fake_str += f"{item[0]} - {item[1]}\n"
     # ==================
 
     if min_price_product is None:
@@ -281,10 +284,10 @@ def calculate_order_site_price(index: int | None = None):
     )
     if stock_fake_price_tuple is None or stock_fake_price_tuple[0] <= 0:  # Ensure valid price
         print("Stock fake price is None or not positive.")
-        return None
+        return None, None
 
     stock_fake_price_value = stock_fake_price_tuple[0]
-    return stock_fake_price_value
+    return stock_fake_price_value, stock_fake_items
 
 
 def process(
