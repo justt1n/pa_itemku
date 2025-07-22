@@ -200,6 +200,7 @@ def _process_fun(row: Row, gsheet: GSheet) -> Optional[Tuple[float, str]]:
             ] if i is not None
             ],
         )
+        print(f"Found {len(fun_offer_items)} FUN offer items")
         filtered_fun_offer_items = FUNOfferItem.filter_valid_fun_offer_items(
             fun=row.fun,
             fun_offer_items=fun_offer_items,
