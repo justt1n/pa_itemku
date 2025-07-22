@@ -23,7 +23,6 @@ h11==0.14.0
 httplib2==0.22.0
 idna==3.10
 iniconfig==2.1.0
--e git+ssh://git@github.com/justt1n/pa_itemku.git@85914594f303937b35fe541dd79cb18a0b501c0a#egg=itemku_tl
 Jinja2==3.1.6
 markdown-it-py==3.0.0
 MarkupSafe==3.0.2
