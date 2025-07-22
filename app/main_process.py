@@ -180,8 +180,8 @@ def check_product_compare_flow(
         od_min_price = order_site_min_price[0]
         od_seller = order_site_min_price[1]
         od_site = order_site_min_price[2]
-        print(f"Order site min price: {od_min_price} - {od_seller} - {od_site}")
-        stock_fake_str += "Stock fake items:\n"
+        stock_fake_str = f"Order site min price: {od_min_price} - {od_seller} - {od_site}\n"
+        stock_fake_str += "Order site items:\n"
         for item in stock_fake_items:
             stock_fake_str += f"{item[0]} - {item[1]} - {item[2]}\n"
     # ==================
