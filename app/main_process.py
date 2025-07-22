@@ -216,7 +216,7 @@ def check_product_compare_flow(
             compare_price=min_price_product.price,
         )
 
-        if od_min_price is not None and target_price > od_min_price and min_price < od_min_price < max_price:
+        if od_min_price is not None and target_price > od_min_price and min_price < od_min_price:
             new_min_price = min_price
             _compare_price = od_min_price
             _compare_seller = f"{od_seller} ({od_site})"
