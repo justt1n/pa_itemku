@@ -370,7 +370,7 @@ def calculate_price_stock_fake(
     row: Row,
     hostdata: dict,
 ) -> Tuple[Optional[Tuple[float, str]], List[Optional[Tuple[float, str]]]]:  # Trả về tuple(min_price, list_all_prices)
-    print("DEBUG: Starting calculate_price_stock_fake...")
+    # print("DEBUG: Starting calculate_price_stock_fake...")
     g2g_future = None
     fun_future = None
     bij_future = None
@@ -516,8 +516,14 @@ def calculate_price_stock_fake(
     s3_min_price = convert_usd_to_idr(s3_min_price_usd, rate)
     s4_min_price = convert_usd_to_idr(s4_min_price_usd, rate)
 
-    all_prices: List[Optional[Tuple[float, str]]] = [g2g_min_price, fun_min_price, bij_min_price, dd_min_price,
-                                                     s1_min_price, s2_min_price, s3_min_price, s4_min_price]
+    all_prices: List[Optional[Tuple[float, str, str]]] = [
+        (price[0], price[1], source) if price is not None else None
+        for price, source in zip(
+            [g2g_min_price, fun_min_price, bij_min_price, dd_min_price, s1_min_price, s2_min_price, s3_min_price,
+             s4_min_price],
+            ['g2g', 'fun', 'bij', 'dd', 's1', 's2', 's3', 's4']
+        )
+    ]
     valid_prices = [p for p in all_prices if p is not None and p[0] > 0]
 
     if not valid_prices:

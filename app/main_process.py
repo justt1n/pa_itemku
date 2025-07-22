@@ -172,15 +172,25 @@ def check_product_compare_flow(
     # get price in order site then compare with product price
     order_site_min_price, stock_fake_items = calculate_order_site_price(index)
     new_min_price = min_price
+    stock_fake_str = ""
+    od_min_price = None
+    od_seller = None
+    od_site = None
     if order_site_min_price is not None:
-        print(f"Order site min price: {order_site_min_price}")
-        new_min_price = max(min_price, int(order_site_min_price))
-        stock_fake_str = ""
+        od_min_price = order_site_min_price[0]
+        od_seller = order_site_min_price[1]
+        od_site = order_site_min_price[2]
+        print(f"Order site min price: {od_min_price} - {od_seller} - {od_site}")
+        stock_fake_str += "Stock fake items:\n"
         for item in stock_fake_items:
-            stock_fake_str += f"{item[0]} - {item[1]}\n"
+            stock_fake_str += f"{item[0]} - {item[1]} - {item[2]}\n"
     # ==================
 
     if min_price_product is None:
+        if od_min_price is not None and od_min_price > min_price:
+            print(f"No valid product found but order site have better price: {od_min_price} > min price: {min_price}")
+            print(f"Set {new_min_price} to product")
+            new_min_price = min_price
         target_price = update_by_min_price_or_max_price(
             product=product,
             min_price=new_min_price,
@@ -196,7 +206,7 @@ def check_product_compare_flow(
             ),
         )
         print(note_message)
-        product.Note = note_message
+        product.Note = note_message + stock_fake_str
         product.Last_update = last_update_message
         product.update()
     else:
@@ -206,25 +216,33 @@ def check_product_compare_flow(
             compare_price=min_price_product.price,
         )
 
+        if od_min_price is not None and target_price > od_min_price and min_price < od_min_price < max_price:
+            new_min_price = min_price
+            _compare_price = od_min_price
+            _compare_seller = f"{od_seller} ({od_site})"
+        else:
+            _compare_price = min_price_product.price
+            _compare_seller = min_price_product.seller.shop_name
+
         update_product_price(
             product_id=extract_product_id_from_product_link(
                 product_link=product.Product_link
             ),
-            target_price=target_price,
+            target_price=new_min_price,
         )
 
         note_message, last_update_message = update_with_comparing_seller_message(
             price=target_price,
             price_min=min_price,
             price_max=max_price,
-            comparing_price=min_price_product.price,
-            comparing_seller=min_price_product.seller.shop_name,
+            comparing_price=_compare_price,
+            comparing_seller=_compare_seller,
             lower_min_price_products=__filter_lower_than_target_price(
                 products=valid_keywords_products, target_price=target_price
             ),
         )
         print(note_message)
-        product.Note = note_message
+        product.Note = note_message + stock_fake_str
         product.Last_update = last_update_message
         product.update()
 
@@ -286,8 +304,7 @@ def calculate_order_site_price(index: int | None = None):
         print("Stock fake price is None or not positive.")
         return None, None
 
-    stock_fake_price_value = stock_fake_price_tuple[0]
-    return stock_fake_price_value, stock_fake_items
+    return stock_fake_price_tuple, stock_fake_items
 
 
 def process(
