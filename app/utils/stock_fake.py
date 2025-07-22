@@ -165,6 +165,7 @@ def _process_g2g(row: Row, gsheet: GSheet) -> Optional[Tuple[float, str]]:
     try:
         print("Starting G2G fetch...")
         g2g_offer_items = g2g_extract_offer_items(row.g2g.G2G_PRODUCT_COMPARE)
+        print(f"Found {len(g2g_offer_items)} G2G offer items")
         filtered_g2g_offer_items = G2GOfferItem.filter_valid_g2g_offer_item(
             g2g=row.g2g,
             g2g_blacklist=row.g2g.get_blacklist(gsheet),
