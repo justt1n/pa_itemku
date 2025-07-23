@@ -507,6 +507,7 @@ def calculate_price_stock_fake(
         rate = rate_sheet.get_cell_float_value(f"'{RATE_SHEET_NAME}'!{CELL_RATE_USD}")
     except Exception:
         rate = 16326
+    print(f"Exchange rate used: {rate} IDR/USD")
     g2g_min_price = convert_usd_to_idr(g2g_min_price_usd, rate)
     fun_min_price = convert_usd_to_idr(fun_min_price_usd, rate)
     bij_min_price = convert_usd_to_idr(bij_min_price_usd, rate)
