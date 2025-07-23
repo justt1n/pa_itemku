@@ -506,6 +506,7 @@ def calculate_price_stock_fake(
         rate_sheet = StockManager(RATE_SHEET_ID)
         rate = rate_sheet.get_cell_float_value(f"'{RATE_SHEET_NAME}'!{CELL_RATE_USD}")
     except Exception:
+        print("Error fetching exchange rate from Google Sheet, using default rate 16326.")
         rate = 16326
     print(f"Exchange rate used: {rate} IDR/USD")
     g2g_min_price = convert_usd_to_idr(g2g_min_price_usd, rate)
