@@ -27,11 +27,12 @@ class StockManager:
                 .execute()
             )
             cell_value = result.get('values', [[]])[0][0]
-            # Convert to integer after handling float-like values
-            stock_value = float(cell_value)
-            return stock_value
+            # Remove commas and convert to float
+            cell_value_clean = cell_value.replace(',', '')
+            stock_value = float(cell_value_clean)
+            return round(stock_value)
         except ValueError as ve:
-            print(f"ValueError for range {range_name}: {cell_value} is not a valid integer.")
+            print(f"ValueError for range {range_name}: {cell_value} is not a valid number.")
             raise Exception(f"Invalid stock value: {cell_value}")
         except Exception as e:
             print(f"Error retrieving stock from range {range_name}: {e}")
